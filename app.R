@@ -80,17 +80,15 @@ combo_icons <-
         iconAnchorX = 0,
         iconAnchorY = 0
     )
-
+car_icons <- awesomeIcons(icon = "car", library = "fa")
 wa_map <- leaflet(options = leafletOptions(preferCanvas = TRUE)) %>%
     setMaxBounds(-124.8361, 45.5437,-116.9174, 49.0024) %>%
-    addProviderTiles(
-        "MapBox",
-        options = providerTileOptions(
-            id = "mapbox.light",
-            noWrap = FALSE,
-            accessToken = 'pk.eyJ1IjoiY2hpbnRhbnAiLCJhIjoiY2ppYXU1anVuMThqazNwcDB2cGtneDdkYyJ9.TL6RTyRRFCbvJWyFa4P0Ow'
-        )
-    )  %>%
+    addProviderTiles("MapBox",
+                     options = providerTileOptions(
+                         id = "mapbox.light",
+                         noWrap = FALSE,
+                         accessToken = Sys.getenv('MAPBOX_ACCESS_TOKEN')
+                     ))  %>%
     addGlPolylines(data = wa_roads, opacity = 1) %>%
     addResetMapButton() %>%
     addSearchOSM()
@@ -124,35 +122,65 @@ sim_df <-
 ### UI ###########
 ####################
 
-routes_tab <- bs4TabItem(tabName = "routes",
-                         fluidRow(column(
-                             width = 9,
-                             bs4Card(
-                                 title = "Route Details",
-                                 closable = FALSE,
-                                 status = "primary",
-                                 collapsible = TRUE,
-                                 labelText = 1,
-                                 labelStatus = "primary",
-                                 labelTooltip = "WSDOT Road Network",
-                                 elevation = 4,
-                                 width = NULL,
-                                 solidHeader = TRUE,
-                                 withSpinner(
-                                     leafglOutput("wa_route_mapout", height = 700),
-                                     type = 8,
-                                     color = "#0dc5c1"
-                                 )
-                             )
-                         ), column(
-                             width = 3,
-                             bs4Card(
-                                 width = 12,
-                                 title = "Origin and Destination Selector",
-                                 closable = FALSE,
-                                 tags$div(id = "selectODDiv", width = 12)
-                             )
-                         )))
+finished_tab <- bs4TabItem(tabName = "finished",
+                           fluidRow(column(
+                               width = 9,
+                               bs4Card(
+                                   title = "Finished Details",
+                                   closable = FALSE,
+                                   status = "primary",
+                                   collapsible = TRUE,
+                                   labelText = 1,
+                                   labelStatus = "primary",
+                                   labelTooltip = "Finished Details",
+                                   elevation = 4,
+                                   width = NULL,
+                                   solidHeader = TRUE,
+                                   withSpinner(
+                                       leafglOutput("wa_fin_mapout", height = 700),
+                                       type = 8,
+                                       color = "#0dc5c1"
+                                   )
+                               )
+                           ), column(
+                               width = 3,
+                               bs4Card(
+                                   width = 12,
+                                   title = "Origin and Destination Selector",
+                                   closable = FALSE,
+                                   tags$div(
+                                       id = "selectODDiv_fin",
+                                       width = 12,
+                                       tags$div(
+                                           style = "display: inline-block;vertical-align:top; width: 250px;",
+                                           selectInput(
+                                               inputId = "select_origin_fin",
+                                               label = "Select origin zip",
+                                               choices = "",
+                                               selected = NULL,
+                                               multiple = FALSE,
+                                               selectize = TRUE,
+                                               width = NULL,
+                                               size = NULL
+                                           )
+                                       ),
+                                       tags$div(style = "display: inline-block;vertical-align:top; width: 50px;", HTML("<br>")),
+                                       tags$div(
+                                           style = "display: inline-block;vertical-align:top; width: 250px;",
+                                           selectInput(
+                                               inputId = "select_destination_fin",
+                                               label = "Select destination zip",
+                                               choices = "",
+                                               selected = NULL,
+                                               multiple = FALSE,
+                                               selectize = TRUE,
+                                               width = NULL,
+                                               size = NULL
+                                           )
+                                       )
+                                   )
+                               )
+                           )))
 
 evse_util_tab <- bs4TabItem(tabName = "evse_util",
                             fluidRow(column(
@@ -173,7 +201,61 @@ evse_util_tab <- bs4TabItem(tabName = "evse_util",
                                 )
                             )))
 
-out_of_charge_tab <- bs4TabItem(tabName = "out_of_charge")
+out_of_charge_tab <- bs4TabItem(tabName = "out_of_charge",
+                                fluidRow(column(
+                                    width = 9,
+                                    bs4Card(
+                                        title = "Out of Charge EV Details",
+                                        closable = FALSE,
+                                        status = "danger",
+                                        collapsible = TRUE,
+                                        labelTooltip = "Out of Charge EV Detail",
+                                        elevation = 4,
+                                        width = NULL,
+                                        solidHeader = TRUE,
+                                        withSpinner(
+                                            leafglOutput("wa_ooc_mapout", height = 700),
+                                            type = 8,
+                                            color = "#0dc5c1"
+                                        )
+                                    )
+                                ), column(
+                                    width = 3,
+                                    bs4Card(
+                                        width = 12,
+                                        title = "Origin and Destination Selector",
+                                        closable = FALSE,
+                                        tags$div(
+                                            style = "display: inline-block;vertical-align:top; width: 250px;",
+                                            selectInput(
+                                                inputId = "select_origin_ooc",
+                                                label = "Select origin zip",
+                                                choices = "",
+                                                selected = NULL,
+                                                multiple = FALSE,
+                                                selectize = TRUE,
+                                                width = NULL,
+                                                size = NULL
+                                            )
+                                        ),
+                                        tags$div(style = "display: inline-block;vertical-align:top; width: 50px;", HTML("<br>")),
+                                        tags$div(
+                                            style = "display: inline-block;vertical-align:top; width: 250px;",
+                                            
+                                            selectInput(
+                                                inputId = "select_destination_ooc",
+                                                label = "Select destination zip",
+                                                choices = "",
+                                                selected = NULL,
+                                                multiple = FALSE,
+                                                selectize = TRUE,
+                                                width = NULL,
+                                                size = NULL
+                                            )
+                                        )
+                                    )
+                                )))
+
 
 ui <- bs4DashPage(
     navbar = bs4DashNavbar(
@@ -268,7 +350,7 @@ ui <- bs4DashPage(
 '
             )
         )),
-        bs4TabItems(routes_tab,
+        bs4TabItems(finished_tab,
                     evse_util_tab,
                     out_of_charge_tab)
     )
@@ -285,7 +367,59 @@ server <- function(input, output, session) {
         evse_util_df = data.frame()
     )
     
-    output$wa_route_mapout <- renderLeaflet(wa_map)
+    output$wa_fin_mapout <- renderLeaflet(
+        wa_map %>%
+            addMarkers(
+                lng = ~ Longitude ,
+                lat = ~ Latitude,
+                layerId = ~ ID,
+                icon = combo_icons,
+                group = base_layers[1],
+                data = all_chargers_combo
+            )  %>%
+            addMarkers(
+                lng = ~ Longitude ,
+                lat = ~ Latitude,
+                layerId = ~ ID,
+                icon = combo_icons,
+                group = base_layers[2],
+                data = all_chargers_chademo
+            ) %>%
+            addLayersControl(
+                overlayGroups = base_layers,
+                options = layersControlOptions(collapsed = FALSE)
+            )
+    )
+    
+    output$wa_ooc_mapout <- renderLeaflet({
+        wa_map %>%
+            addMarkers(
+                lng = ~ Longitude ,
+                lat = ~ Latitude,
+                layerId = ~ ID,
+                icon = combo_icons,
+                group = base_layers[1],
+                data = all_chargers_combo
+            )  %>%
+            addMarkers(
+                lng = ~ Longitude ,
+                lat = ~ Latitude,
+                layerId = ~ ID,
+                icon = combo_icons,
+                group = base_layers[2],
+                data = all_chargers_chademo
+            ) %>%
+            addCircleMarkers(
+                data = rvData$out_of_charge_df,
+                lat = ~ latitude,
+                lng = ~ longitude,
+                radius = 4,
+                color = "#AAD3DF"
+            ) %>%
+            addLayersControl(overlayGroups = base_layers,
+                             options = layersControlOptions(collapsed = FALSE))
+    })
+    
     output$wa_evse_mapout <- renderLeaflet({
         wa_map %>%
             addMarkers(
@@ -314,7 +448,7 @@ server <- function(input, output, session) {
         
         if (!rapportools::is.empty(rvData$simulation_runtime)) {
             power_draw_evse <-
-                rvData$power_draw_df %>% dplyr::select(.data$datetime, .data[[paste0("X", id)]])
+                as.data.frame(rvData$power_draw_df[, names(rvData$power_draw_df) %in% c("datetime", paste0("X", id))])
             evse_util <-
                 round(rvData$evse_util_df$energy_consumed[which(rvData$evse_util_df$evse_id == id)], 2)
             chademo_count <-
@@ -322,47 +456,59 @@ server <- function(input, output, session) {
             combo_count <-
                 all_chargers_combo$`EV DC Fast Count`[all_chargers_combo$ID == id]
             
-            showModal(
-                modalDialog(
-                    title = "Charging station details",
-                    fluidRow(
-                        bs4Table(
-                            cardWrap = TRUE,
-                            bordered = TRUE,
-                            striped = TRUE,
-                            headTitles = c(
-                                "ID",
-                                "EVSE Utilization (kWh)",
-                                "Number of Chademo Plugs",
-                                "Number of Combo Plugs"
-                            ),
-                            bs4TableItems(
-                                bs4TableItem(id),
-                                bs4TableItem(dataCell = TRUE, evse_util),
-                                bs4TableItem(dataCell = TRUE,
-                                             chademo_count),
-                                bs4TableItem(dataCell = TRUE,
-                                             combo_count)
+            
+            
+            if (ncol(power_draw_evse) == 2) {
+                showModal(
+                    modalDialog(
+                        title = "Charging station details",
+                        fluidRow(
+                            bs4Table(
+                                cardWrap = TRUE,
+                                bordered = TRUE,
+                                striped = TRUE,
+                                headTitles = c(
+                                    "ID",
+                                    "EVSE Utilization (kWh)",
+                                    "Number of Chademo Plugs",
+                                    "Number of Combo Plugs"
+                                ),
+                                bs4TableItems(
+                                    bs4TableItem(id),
+                                    bs4TableItem(dataCell = TRUE, evse_util),
+                                    bs4TableItem(dataCell = TRUE,
+                                                 chademo_count),
+                                    bs4TableItem(dataCell = TRUE,
+                                                 combo_count)
+                                )
                             )
-                        )
-                    ),
-                    renderPlot(
-                        plot(
-                            x = power_draw_evse$datetime,
-                            y = power_draw_evse[[paste0("X", id)]],
-                            type = "l"
-                        )
-                    ),
-                    easyClose = TRUE,
-                    size = "l",
-                    fade = FALSE
+                        ),
+                        renderPlot(
+                            plot(
+                                x = lubridate::as_datetime(power_draw_evse$datetime),
+                                y = power_draw_evse[[paste0("X", id)]],
+                                type = "l"
+                            )
+                        ),
+                        easyClose = TRUE,
+                        size = "l",
+                        fade = FALSE
+                    )
                 )
-            )
+            } else {
+                showModal(
+                    modalDialog(
+                        size = "s",
+                        easyClose = TRUE,
+                        "The charging station seems to be new and we do not have any data for it yet."
+                    )
+                )
+            }
         } else {
             showModal(
                 modalDialog(
-                    size = "s", 
-                    easyClose = TRUE, 
+                    size = "s",
+                    easyClose = TRUE,
                     "Select a simulation date and run time to see the EVSE utilization."
                 )
             )
@@ -370,43 +516,6 @@ server <- function(input, output, session) {
     })
     
     session$onFlushed(function() {
-        print("Called now")
-        
-        insertUI(
-            selector = "#selectODDiv",
-            ui =    tags$div(
-                width = 12,
-                tags$div(
-                    style = "display: inline-block;vertical-align:top; width: 250px;",
-                    selectInput(
-                        inputId = "select_origin",
-                        label = "Select origin zip",
-                        choices = c(1, 2, 3),
-                        selected = NULL,
-                        multiple = FALSE,
-                        selectize = TRUE,
-                        width = NULL,
-                        size = NULL
-                    )
-                ),
-                tags$div(style = "display: inline-block;vertical-align:top; width: 50px;", HTML("<br>")),
-                tags$div(
-                    style = "display: inline-block;vertical-align:top; width: 250px;",
-                    selectInput(
-                        inputId = "select_destination",
-                        label = "Select destination zip",
-                        choices = c(1, 2, 3),
-                        selected = NULL,
-                        multiple = FALSE,
-                        selectize = TRUE,
-                        width = NULL,
-                        size = NULL
-                    )
-                )
-                
-            )
-        )
-        
         
     })
     
@@ -420,6 +529,70 @@ server <- function(input, output, session) {
                           choices =  sim_df$sim_times[which(sim_df$sim_dates == input$select_date)])
     })
     
+    observeEvent(input$select_origin_ooc, {
+        if (!rapportools::is.empty(input$select_origin_ooc)) {
+            updateSelectInput(
+                session,
+                inputId = 'select_destination_ooc',
+                choices = rvData$out_of_charge_df$destination_zip[which(rvData$out_of_charge_df$origin_zip == input$select_origin_ooc)]
+            )
+        }
+    })
+    
+    observeEvent(input$select_origin_fin, {
+        if (!rapportools::is.empty(input$select_origin_fin)) {
+            updateSelectInput(
+                session,
+                inputId = 'select_destination_fin',
+                choices = rvData$finished_df$destination_zip[which(rvData$finished_df$origin_zip == input$select_origin_fin)]
+            )
+        }
+    })
+    
+    observeEvent(input$select_destination_fin, {
+        if (!rapportools::is.empty(input$select_destination_fin)) {
+            finished_row <-
+                rvData$finished_df[(
+                    rvData$finished_df$origin_zip == input$select_origin_fin &
+                        rvData$finished_df$destination_zip == input$select_destination_fin
+                ), ]
+            if (nrow(finished_row) == 1) {
+                leafletProxy(mapId = "wa_fin_mapout") %>%
+                    addCircleMarkers(
+                        data = finished_row,
+                        lat = ~ latitude,
+                        lng = ~ longitude,
+                        radius = 8,
+                        color = "#AAD3DF"
+                        
+                    )
+            }
+            
+        }
+    })
+    
+    observeEvent(input$select_destination_ooc, {
+        if (!rapportools::is.empty(input$select_destination_ooc)) {
+            out_of_charge_row <-
+                rvData$out_of_charge_df[(
+                    rvData$out_of_charge_df$origin_zip == input$select_origin_ooc &
+                        rvData$out_of_charge_df$destination_zip == input$select_destination_ooc
+                ), ]
+            if (nrow(out_of_charge_row) == 1) {
+                leafletProxy(mapId = "wa_ooc_mapout") %>%
+                    addCircleMarkers(
+                        data = out_of_charge_row,
+                        lat = ~ latitude,
+                        lng = ~ longitude,
+                        radius = 8,
+                        color = "#AAD3DF"
+                        
+                    )
+            }
+            
+        }
+    })
+    
     observeEvent(input$select_datetime, {
         print("Datetime selected")
         rvData$simulation_runtime <- input$select_datetime
@@ -431,23 +604,40 @@ server <- function(input, output, session) {
             evse_util_file <-
                 list.files("evse_util", pattern = sim_str)
             rvData$evse_util_df <-
-                read.csv(here::here("evse_util", evse_util_file))
+                read.csv(here::here("evse_util", evse_util_file),
+                         stringsAsFactors = FALSE)
             charging_session_file <-
                 list.files("charging_session", pattern = sim_str)
             rvData$charging_session_df <-
-                read.csv(here::here("charging_session", charging_session_file))
+                read.csv(
+                    here::here("charging_session", charging_session_file),
+                    stringsAsFactors = FALSE
+                )
             power_draw_file <-
                 list.files("power_draw", pattern = sim_str)
             rvData$power_draw_df <-
-                read.csv(here::here("power_draw", power_draw_file))
+                read.csv(here::here("power_draw", power_draw_file),
+                         stringsAsFactors = FALSE)
             out_of_charge_file <-
                 list.files("out_of_charge", pattern = sim_str)
             rvData$out_of_charge_df <-
-                read.csv(here::here("out_of_charge", out_of_charge_file))
+                read.csv(here::here("out_of_charge", out_of_charge_file),
+                         stringsAsFactors = FALSE)
             finished_file <-
                 list.files("finished", pattern = sim_str)
             rvData$finished_df <-
-                read.csv(here::here("finished", finished_file))
+                read.csv(here::here("finished", finished_file),
+                         stringsAsFactors = FALSE)
+            
+            updateSelectInput(
+                session,
+                inputId = 'select_origin_ooc',
+                choices = rvData$out_of_charge_df$origin_zip
+            )
+            
+            updateSelectInput(session,
+                              inputId = 'select_origin_fin',
+                              choices = rvData$finished$origin_zip)
         }
         
     })
