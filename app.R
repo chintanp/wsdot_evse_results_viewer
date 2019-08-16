@@ -64,11 +64,11 @@ for (i in 1:nrow(evse_dcfc)) {
 
 all_chargers_combo <-
     evse_dcfc[evse_dcfc$EV_Connector_Code == 2 |
-                  evse_dcfc$EV_Connector_Code == 3,]
+                  evse_dcfc$EV_Connector_Code == 3, ]
 
 all_chargers_chademo <-
     evse_dcfc[evse_dcfc$EV_Connector_Code == 1 |
-                  evse_dcfc$EV_Connector_Code == 3,]
+                  evse_dcfc$EV_Connector_Code == 3, ]
 
 base_layers <- c("Combo", "CHAdeMO")
 
@@ -82,7 +82,7 @@ combo_icons <-
     )
 car_icons <- awesomeIcons(icon = "car", library = "fa")
 wa_map <- leaflet(options = leafletOptions(preferCanvas = TRUE)) %>%
-    setMaxBounds(-124.8361, 45.5437,-116.9174, 49.0024) %>%
+    setMaxBounds(-124.8361, 45.5437, -116.9174, 49.0024) %>%
     addProviderTiles("MapBox",
                      options = providerTileOptions(
                          id = "mapbox.light",
@@ -414,7 +414,7 @@ server <- function(input, output, session) {
                 lat = ~ latitude,
                 lng = ~ longitude,
                 radius = 4,
-                color = "#AAD3DF"
+                color = "#D5696F"
             ) %>%
             addLayersControl(overlayGroups = base_layers,
                              options = layersControlOptions(collapsed = FALSE))
@@ -555,17 +555,17 @@ server <- function(input, output, session) {
                 rvData$finished_df[(
                     rvData$finished_df$origin_zip == input$select_origin_fin &
                         rvData$finished_df$destination_zip == input$select_destination_fin
-                ), ]
+                ),]
             if (nrow(finished_row) == 1) {
-                leafletProxy(mapId = "wa_fin_mapout") %>%
-                    addCircleMarkers(
-                        data = finished_row,
-                        lat = ~ latitude,
-                        lng = ~ longitude,
-                        radius = 8,
-                        color = "#AAD3DF"
-                        
-                    )
+                # leafletProxy(mapId = "wa_fin_mapout") %>%
+                #     addCircleMarkers(
+                #         data = finished_row,
+                #         lat = ~ latitude,
+                #         lng = ~ longitude,
+                #         radius = 8,
+                #         color = "#5569AF"
+                #         
+                #     )
             }
             
         }
@@ -577,15 +577,15 @@ server <- function(input, output, session) {
                 rvData$out_of_charge_df[(
                     rvData$out_of_charge_df$origin_zip == input$select_origin_ooc &
                         rvData$out_of_charge_df$destination_zip == input$select_destination_ooc
-                ), ]
+                ),]
             if (nrow(out_of_charge_row) == 1) {
                 leafletProxy(mapId = "wa_ooc_mapout") %>%
                     addCircleMarkers(
                         data = out_of_charge_row,
                         lat = ~ latitude,
                         lng = ~ longitude,
-                        radius = 8,
-                        color = "#AAD3DF"
+                        radius = 10,
+                        color = "#D5696F"
                         
                     )
             }
@@ -637,7 +637,7 @@ server <- function(input, output, session) {
             
             updateSelectInput(session,
                               inputId = 'select_origin_fin',
-                              choices = rvData$finished$origin_zip)
+                              choices = rvData$finished_df$origin_zip)
         }
         
     })
