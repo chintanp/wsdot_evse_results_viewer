@@ -42,3 +42,7 @@ charging_session/
 finished/
 evse_util/
 out_of_charge/ 
+ev_agents_info/
+.Rproj.user
+*.csv
+_RData.gz
