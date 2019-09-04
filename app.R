@@ -31,6 +31,7 @@ library(DBI)
 library(RPostgres)
 library(rpostgis)
 library(vroom)
+library(fontawesome)
 
 con <-
     DBI::dbConnect(
@@ -55,7 +56,10 @@ evse_dcfc <- vroom::vroom(afdc_url, delim = ",")
 nevses <- nrow(evse_dcfc)
 # TODO: Add a fallback clause in the case the API is non-responsive
 
-evse_dcfc <- tibble::add_column(evse_dcfc, EV_Connector_Code = 0,  ChargingCost = 0)
+evse_dcfc <-
+    tibble::add_column(evse_dcfc,
+                       EV_Connector_Code = 0,
+                       ChargingCost = 0)
 #ibble::add_column(evse_dcfc,)
 
 # Convert the connector type to code for easy parsing in GAMA
@@ -81,11 +85,11 @@ for (i in 1:nrow(evse_dcfc)) {
 
 all_chargers_combo <-
     evse_dcfc[evse_dcfc$EV_Connector_Code == 2 |
-                  evse_dcfc$EV_Connector_Code == 3,]
+                  evse_dcfc$EV_Connector_Code == 3, ]
 
 all_chargers_chademo <-
     evse_dcfc[evse_dcfc$EV_Connector_Code == 1 |
-                  evse_dcfc$EV_Connector_Code == 3,]
+                  evse_dcfc$EV_Connector_Code == 3, ]
 
 base_layers <- c("Combo", "CHAdeMO")
 
@@ -99,7 +103,7 @@ combo_icons <-
     )
 car_icons <- awesomeIcons(icon = "car", library = "fa")
 wa_map <- leaflet(options = leafletOptions(preferCanvas = TRUE)) %>%
-    setMaxBounds(-124.8361, 45.5437,-116.9174, 49.0024) %>%
+    setMaxBounds(-124.8361, 45.5437, -116.9174, 49.0024) %>%
     addProviderTiles("MapBox",
                      options = providerTileOptions(
                          id = "mapbox.light",
@@ -274,6 +278,19 @@ out_of_charge_tab <- bs4TabItem(tabName = "out_of_charge",
                                 )))
 
 
+summary_tab <- bs4TabItem(
+    tabName = "summary",
+    h4("Summary Statistics"),
+    fluidRow(
+        bs4InfoBoxOutput("vehicle_count"),
+        bs4InfoBoxOutput("finished_count"),
+        bs4InfoBoxOutput("out_of_charge_count"),
+        bs4InfoBoxOutput("evmt_count"),
+        bs4InfoBoxOutput("charging_session_count")
+        
+    )
+)
+
 ui <- bs4DashPage(
     navbar = bs4DashNavbar(
         skin = "dark",
@@ -340,6 +357,11 @@ ui <- bs4DashPage(
                     text = "Out of charge",
                     tabName = "out_of_charge",
                     icon = "battery-empty"
+                ),
+                bs4SidebarMenuSubItem(
+                    text = "Summary Stats",
+                    tabName = "summary",
+                    icon = "chart-bar"
                 )
             )
         )
@@ -369,7 +391,8 @@ ui <- bs4DashPage(
             )),
         bs4TabItems(finished_tab,
                     evse_util_tab,
-                    out_of_charge_tab)
+                    out_of_charge_tab,
+                    summary_tab)
             )
         )
 
@@ -522,14 +545,18 @@ server <- function(input, output, session) {
                                 headTitles = c(
                                     "ID",
                                     "EVSE Utilization (kWh)",
-                                    "Number of Chademo Plugs",
-                                    "Number of Combo Plugs"
+                                    "# Chademo",
+                                    "# Combo",
+                                    "# EVs Served",
+                                    "# EVs Passed"
                                 ),
                                 bs4TableItems(
                                     bs4TableItem(id),
                                     bs4TableItem(dataCell = TRUE, evse_util),
                                     bs4TableItem(dataCell = TRUE,
                                                  chademo_count),
+                                    bs4TableItem(dataCell = TRUE,
+                                                 combo_count),
                                     bs4TableItem(dataCell = TRUE,
                                                  combo_count)
                                 )
@@ -613,7 +640,7 @@ server <- function(input, output, session) {
                 rvData$finished_df[(
                     rvData$finished_df$origin_zip == input$select_origin_fin &
                         rvData$finished_df$destination_zip == input$select_destination_fin
-                ), ]
+                ),]
             if (nrow(finished_row) == 1) {
                 veh_id <-
                     finished_row$veh_ID # paste0("X", trimws(finished_row$veh_ID))
@@ -621,15 +648,23 @@ server <- function(input, output, session) {
                 lats <- as.numeric(rvData$lat_df[[veh_id]])
                 lngs <- as.numeric(rvData$lng_df[[veh_id]])
                 
-                socs <- paste("SOC:", round(as.numeric(rvData$soc_df[[veh_id]]), 2))
-                tocharges <- paste("To charge:", rvData$tocharge_df[[veh_id]])
-                probs <- paste("Probability:", round(as.numeric(rvData$prob_df[[veh_id]], 2)))
+                socs <-
+                    paste("SOC:", round(as.numeric(rvData$soc_df[[veh_id]]), 2))
+                tocharges <-
+                    paste("To charge:", rvData$tocharge_df[[veh_id]])
+                probs <-
+                    paste("Probability:", round(as.numeric(rvData$prob_df[[veh_id]], 2)))
                 states <- paste("State:", rvData$state_df[[veh_id]])
                 
-                ev_info_df <- data.frame(socs, tocharges, probs, states, stringsAsFactors = FALSE)
+                ev_info_df <-
+                    data.frame(socs,
+                               tocharges,
+                               probs,
+                               states,
+                               stringsAsFactors = FALSE)
                 
                 trip_row <-
-                    rvData$trip_scenario_day_df[which(rvData$trip_scenario_day_df$ulid == trimws(finished_row$veh_ID)),]
+                    rvData$trip_scenario_day_df[which(rvData$trip_scenario_day_df$ulid == trimws(finished_row$veh_ID)), ]
                 od_lats <-
                     c(trip_row$Origin_Lat,
                       trip_row$Destination_Lat)
@@ -652,7 +687,7 @@ server <- function(input, output, session) {
                 DBI::dbClearResult(sp_res)
                 
                 cs_df <-
-                    rvData$charging_session_df[which(rvData$charging_session_df$veh_ID == veh_id),]
+                    rvData$charging_session_df[which(rvData$charging_session_df$veh_ID == veh_id), ]
                 cs_lats <-
                     evse_dcfc$Latitude[which(evse_dcfc$ID == cs_df$evse_id)]
                 cs_lngs <-
@@ -695,8 +730,20 @@ server <- function(input, output, session) {
                         lng = lngs,
                         radius = 4,
                         color = " #75d654",
-                        popup = paste(sep = "<br>", ev_info_df$socs, ev_info_df$tocharges, ev_info_df$probs, ev_info_df$states),
-                        label = paste(sep = "\n", ev_info_df$socs, ev_info_df$tocharges, ev_info_df$probs, ev_info_df$states),
+                        popup = paste(
+                            sep = "<br>",
+                            ev_info_df$socs,
+                            ev_info_df$tocharges,
+                            ev_info_df$probs,
+                            ev_info_df$states
+                        ),
+                        label = paste(
+                            sep = "\n",
+                            ev_info_df$socs,
+                            ev_info_df$tocharges,
+                            ev_info_df$probs,
+                            ev_info_df$states
+                        ),
                         group = "travel_path",
                         stroke = FALSE,
                         fillOpacity = 0.5,
@@ -707,23 +754,31 @@ server <- function(input, output, session) {
                         color = "#3371ff",
                         group = "shortest_path",
                         opacity = 1
-                    ) 
+                    )
                 
                 if (nrow(cs_df) >= 1) {
-                        leafletProxy(mapId = "wa_fin_mapout") %>%
-                            addCircleMarkers(
-                                lat = cs_lats,
-                                lng = cs_lngs,
-                                radius = 12,
-                                group = "charging_sessions",
-                                popup = paste(sep = "<br>", "Charging session:", row.names(cs_df), "Starting SOC:", round(as.numeric(cs_df$starting_SOC), 2), "Ending SOC:", round(as.numeric(cs_df$ending_SOC))),
-                                label = row.names(cs_df),
-                                labelOptions = labelOptions(noHide = T, textsize = "18px"),
-                                stroke = FALSE,
-                                fillOpacity = 0.8,
-                                options = pathOptions(pane = "charging_sessions")
-                            )
-                    }
+                    leafletProxy(mapId = "wa_fin_mapout") %>%
+                        addCircleMarkers(
+                            lat = cs_lats,
+                            lng = cs_lngs,
+                            radius = 12,
+                            group = "charging_sessions",
+                            popup = paste(
+                                sep = "<br>",
+                                "Charging session:",
+                                row.names(cs_df),
+                                "Starting SOC:",
+                                round(as.numeric(cs_df$starting_SOC), 2),
+                                "Ending SOC:",
+                                round(as.numeric(cs_df$ending_SOC))
+                            ),
+                            label = row.names(cs_df),
+                            labelOptions = labelOptions(noHide = T, textsize = "18px"),
+                            stroke = FALSE,
+                            fillOpacity = 0.8,
+                            options = pathOptions(pane = "charging_sessions")
+                        )
+                }
                 
             }
             
@@ -738,24 +793,32 @@ server <- function(input, output, session) {
                 rvData$out_of_charge_df[(
                     rvData$out_of_charge_df$origin_zip == input$select_origin_ooc &
                         rvData$out_of_charge_df$destination_zip == input$select_destination_ooc
-                ), ]
+                ),]
             if (nrow(out_of_charge_row) == 1) {
                 veh_id <-
                     out_of_charge_row$veh_ID # paste0("X", trimws(out_of_charge_row$veh_ID))
                 dt <- rvData$lat_df$datetime
                 lats <- as.numeric(rvData$lat_df[[veh_id]])
                 lngs <- as.numeric(rvData$lng_df[[veh_id]])
-                socs <- paste("SOC:", round(as.numeric(rvData$soc_df[[veh_id]]), 2))
-                tocharges <- paste("To charge:", rvData$tocharge_df[[veh_id]])
-                probs <- paste("Probability:", round(as.numeric(rvData$prob_df[[veh_id]], 2)))
+                socs <-
+                    paste("SOC:", round(as.numeric(rvData$soc_df[[veh_id]]), 2))
+                tocharges <-
+                    paste("To charge:", rvData$tocharge_df[[veh_id]])
+                probs <-
+                    paste("Probability:", round(as.numeric(rvData$prob_df[[veh_id]], 2)))
                 states <- paste("State:", rvData$state_df[[veh_id]])
                 
-                ev_info_df <- data.frame(socs, tocharges, probs, states, stringsAsFactors = FALSE)
+                ev_info_df <-
+                    data.frame(socs,
+                               tocharges,
+                               probs,
+                               states,
+                               stringsAsFactors = FALSE)
                 
                 trip_row <-
                     rvData$trip_scenario_day_df[which(
                         rvData$trip_scenario_day_df$ulid == trimws(out_of_charge_row$veh_ID)
-                    ),]
+                    ), ]
                 od_lats <-
                     c(trip_row$Origin_Lat,
                       trip_row$Destination_Lat)
@@ -776,7 +839,7 @@ server <- function(input, output, session) {
                 DBI::dbClearResult(sp_res)
                 
                 cs_df <-
-                    rvData$charging_session_df[which(rvData$charging_session_df$veh_ID == veh_id),]
+                    rvData$charging_session_df[which(rvData$charging_session_df$veh_ID == veh_id), ]
                 cs_lats <-
                     evse_dcfc$Latitude[which(evse_dcfc$ID == cs_df$evse_id)]
                 cs_lngs <-
@@ -819,8 +882,20 @@ server <- function(input, output, session) {
                         lng = lngs,
                         radius = 4,
                         color = "#b50d2c",
-                        popup = paste(sep = "<br>", ev_info_df$socs, ev_info_df$tocharges, ev_info_df$probs, ev_info_df$states),
-                        label = paste(sep = "\n", ev_info_df$socs, ev_info_df$tocharges, ev_info_df$probs, ev_info_df$states),
+                        popup = paste(
+                            sep = "<br>",
+                            ev_info_df$socs,
+                            ev_info_df$tocharges,
+                            ev_info_df$probs,
+                            ev_info_df$states
+                        ),
+                        label = paste(
+                            sep = "\n",
+                            ev_info_df$socs,
+                            ev_info_df$tocharges,
+                            ev_info_df$probs,
+                            ev_info_df$states
+                        ),
                         group = "travel_path",
                         stroke = FALSE,
                         fillOpacity = 0.5,
@@ -840,7 +915,15 @@ server <- function(input, output, session) {
                             lng = cs_lngs,
                             radius = 12,
                             group = "charging_sessions",
-                            popup = paste(sep = "<br>", "Charging session:", row.names(cs_df), "Starting SOC:", round(as.numeric(cs_df$starting_SOC)), "Ending SOC:", round(as.numeric(cs_df$ending_SOC))),
+                            popup = paste(
+                                sep = "<br>",
+                                "Charging session:",
+                                row.names(cs_df),
+                                "Starting SOC:",
+                                round(as.numeric(cs_df$starting_SOC)),
+                                "Ending SOC:",
+                                round(as.numeric(cs_df$ending_SOC))
+                            ),
                             label = row.names(cs_df),
                             labelOptions = labelOptions(noHide = T, textsize = "20px"),
                             stroke = FALSE,
@@ -875,14 +958,16 @@ server <- function(input, output, session) {
             rvData$evse_util_df <-
                 vroom::vroom(
                     here::here("evse_util", evse_util_file),
-                    delim = ","
+                    delim = ",",
+                    col_types = "id"
                 )
             charging_session_file <-
                 list.files("charging_session", pattern = sim_str)
             rvData$charging_session_df <-
                 vroom::vroom(
                     here::here("charging_session", charging_session_file),
-                    delim = ","
+                    delim = ",",
+                    col_types = "cccddiii"
                 )
             
             power_draw_file <-
@@ -890,21 +975,23 @@ server <- function(input, output, session) {
             rvData$power_draw_df <-
                 vroom::vroom(
                     here::here("power_draw", power_draw_file),
-                    delim = ","
-                )
+                    delim = ",")
+
             out_of_charge_file <-
                 list.files("out_of_charge", pattern = sim_str)
             rvData$out_of_charge_df <-
                 vroom::vroom(
                     here::here("out_of_charge", out_of_charge_file),
-                    delim = ","
+                    delim = ",",
+                    col_types = "ccddii"
                 )
             finished_file <-
                 list.files("finished", pattern = sim_str)
             rvData$finished_df <-
                 vroom::vroom(
                     here::here("finished", finished_file),
-                    delim = ","
+                    delim = ",",
+                    col_types = "cciiddd"
                 )
             
             soc_str <- paste("soc", sim_str, sep = "_")
@@ -913,7 +1000,9 @@ server <- function(input, output, session) {
             rvData$soc_df <-
                 vroom::vroom(
                     here::here("ev_agents_info", soc_file),
-                    delim = ","
+                    delim = ",",
+                    col_types = paste0("c", strrep("c", nevs)),
+                    .name_repair = "minimal"
                 )
             
             lat_str <- paste("lat", sim_str, sep = "_")
@@ -922,7 +1011,9 @@ server <- function(input, output, session) {
             rvData$lat_df <-
                 vroom::vroom(
                     here::here("ev_agents_info", lat_file),
-                    delim = ","
+                    delim = ",",
+                    col_types = paste0("c", strrep("c", nevs)),
+                    .name_repair = "minimal"
                 )
             
             lng_str <- paste("lng", sim_str, sep = "_")
@@ -931,7 +1022,9 @@ server <- function(input, output, session) {
             rvData$lng_df <-
                 vroom::vroom(
                     here::here("ev_agents_info", lng_file),
-                    delim = ","
+                    delim = ",",
+                    col_types = paste0("c", strrep("c", nevs)),
+                    .name_repair = "minimal"
                 )
             
             # speed_str <- paste("soc", sim_str, sep = "_")
@@ -945,7 +1038,9 @@ server <- function(input, output, session) {
             rvData$prob_df <-
                 vroom::vroom(
                     here::here("ev_agents_info", prob_file),
-                    delim = ","
+                    delim = ",",
+                    col_types = paste0("c", strrep("c", nevs)),
+                    .name_repair = "minimal"
                 )
             
             tocharge_str <- paste("tocharge", sim_str, sep = "_")
@@ -954,7 +1049,9 @@ server <- function(input, output, session) {
             rvData$tocharge_df <-
                 vroom::vroom(
                     here::here("ev_agents_info", tocharge_file),
-                    delim = ","
+                    delim = ",",
+                    col_types = paste0("c", strrep("c", nevs)),
+                    .name_repair = "minimal"
                 )
             
             state_str <- paste("state", sim_str, sep = "_")
@@ -963,7 +1060,9 @@ server <- function(input, output, session) {
             rvData$state_df <-
                 vroom::vroom(
                     here::here("ev_agents_info", state_file),
-                    delim = ","
+                    delim = ",",
+                    col_types = paste0("c", strrep("c", nevs)),
+                    .name_repair = "minimal"
                 )
             
             
@@ -978,6 +1077,44 @@ server <- function(input, output, session) {
                 inputId = 'select_origin_fin',
                 choices = sort(rvData$finished_df$origin_zip)
             )
+            
+            output$vehicle_count <- renderbs4InfoBox({
+                bs4InfoBox(value = nevs,
+                           title = "EVs in Simulation",
+                           icon = "layer-group")
+            })
+            
+            output$finished_count <- renderbs4InfoBox({
+                bs4InfoBox(
+                    value = nrow(rvData$finished_df),
+                    title = "EVs finishing trip",
+                    icon = "car"
+                )
+            })
+            
+            output$out_of_charge_count <- renderbs4InfoBox({
+                bs4InfoBox(
+                    value = nrow(rvData$out_of_charge_df),
+                    title = "EVs out of charge during trip",
+                    icon = "car-crash"
+                )
+            })
+            
+            output$evmt_count <- renderbs4InfoBox({
+                bs4InfoBox(
+                    value = sum(rvData$finished_df$distance_travelled),
+                    title = "eVMT",
+                    icon = "bolt"
+                )
+            })
+            
+            output$charging_session_count <- renderbs4InfoBox({
+                bs4InfoBox(
+                    value = nrow(rvData$charging_session_df),
+                    title = "Number of charging sessions",
+                    icon = "charging-station"
+                )
+            })
         }
         
     })
