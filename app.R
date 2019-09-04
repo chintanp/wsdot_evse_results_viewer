@@ -55,8 +55,8 @@ evse_dcfc <- vroom::vroom(afdc_url, delim = ",")
 nevses <- nrow(evse_dcfc)
 # TODO: Add a fallback clause in the case the API is non-responsive
 
-tibble::add_column(evse_dcfc, EV_Connector_Code = 0)
-tibble::add_column(evse_dcfc, ChargingCost = 0)
+evse_dcfc <- tibble::add_column(evse_dcfc, EV_Connector_Code = 0,  ChargingCost = 0)
+#ibble::add_column(evse_dcfc,)
 
 # Convert the connector type to code for easy parsing in GAMA
 # CHADEMO only - 1
@@ -875,16 +875,14 @@ server <- function(input, output, session) {
             rvData$evse_util_df <-
                 vroom::vroom(
                     here::here("evse_util", evse_util_file),
-                    delim = ",",
-                    col_types = "dd"
+                    delim = ","
                 )
             charging_session_file <-
                 list.files("charging_session", pattern = sim_str)
             rvData$charging_session_df <-
                 vroom::vroom(
                     here::here("charging_session", charging_session_file),
-                    delim = ",",
-                    col_types = "cccddddd"
+                    delim = ","
                 )
             
             power_draw_file <-
@@ -892,24 +890,21 @@ server <- function(input, output, session) {
             rvData$power_draw_df <-
                 vroom::vroom(
                     here::here("power_draw", power_draw_file),
-                    delim = ",",
-                    col_types = paste0("c", strrep("c", nevses))
+                    delim = ","
                 )
             out_of_charge_file <-
                 list.files("out_of_charge", pattern = sim_str)
             rvData$out_of_charge_df <-
                 vroom::vroom(
                     here::here("out_of_charge", out_of_charge_file),
-                    delim = ",",
-                    col_types = "ccdddd"
+                    delim = ","
                 )
             finished_file <-
                 list.files("finished", pattern = sim_str)
             rvData$finished_df <-
                 vroom::vroom(
                     here::here("finished", finished_file),
-                    delim = ",",
-                    col_types = "ccddddd"
+                    delim = ","
                 )
             
             soc_str <- paste("soc", sim_str, sep = "_")
@@ -918,9 +913,7 @@ server <- function(input, output, session) {
             rvData$soc_df <-
                 vroom::vroom(
                     here::here("ev_agents_info", soc_file),
-                    delim = ",",
-                    col_types = paste0("c", strrep("c", nevs)),
-                    .name_repair = "minimal"
+                    delim = ","
                 )
             
             lat_str <- paste("lat", sim_str, sep = "_")
@@ -929,9 +922,7 @@ server <- function(input, output, session) {
             rvData$lat_df <-
                 vroom::vroom(
                     here::here("ev_agents_info", lat_file),
-                    delim = ",",
-                    col_types = paste0("c", strrep("c", nevs)),
-                    .name_repair = "minimal"
+                    delim = ","
                 )
             
             lng_str <- paste("lng", sim_str, sep = "_")
@@ -940,9 +931,7 @@ server <- function(input, output, session) {
             rvData$lng_df <-
                 vroom::vroom(
                     here::here("ev_agents_info", lng_file),
-                    delim = ",",
-                    col_types = paste0("c", strrep("c", nevs)),
-                    .name_repair = "minimal"
+                    delim = ","
                 )
             
             # speed_str <- paste("soc", sim_str, sep = "_")
@@ -956,9 +945,7 @@ server <- function(input, output, session) {
             rvData$prob_df <-
                 vroom::vroom(
                     here::here("ev_agents_info", prob_file),
-                    delim = ",",
-                    col_types = paste0("c", strrep("c", nevs)),
-                    .name_repair = "minimal"
+                    delim = ","
                 )
             
             tocharge_str <- paste("tocharge", sim_str, sep = "_")
@@ -967,9 +954,7 @@ server <- function(input, output, session) {
             rvData$tocharge_df <-
                 vroom::vroom(
                     here::here("ev_agents_info", tocharge_file),
-                    delim = ",",
-                    col_types = paste0("c", strrep("c", nevs)),
-                    .name_repair = "minimal"
+                    delim = ","
                 )
             
             state_str <- paste("state", sim_str, sep = "_")
@@ -978,9 +963,7 @@ server <- function(input, output, session) {
             rvData$state_df <-
                 vroom::vroom(
                     here::here("ev_agents_info", state_file),
-                    delim = ",",
-                    col_types = paste0("c", strrep("c", nevs)),
-                    .name_repair = "minimal"
+                    delim = ","
                 )
             
             
