@@ -1,143 +1,4 @@
-# !diagnostics off
-
-library(shinydashboard)
-library(shinyWidgets)
-library(shiny)
-library(leaflet)
-library(dplyr)
-library(httr)
-library(curl) # make the jsonlite suggested dependency explicit
-library(rgdal)
-library(sp)
-library(htmltools)
-library(Hmisc)
-library(RColorBrewer)
-library(shinythemes)
-library(readr)
-library(rgeos)
-library(hash)
-library(shinycssloaders)
-library(ulid)
-library(here)
-library(stringi)
-library(DT)
-library(auth0)
-library(bs4Dash)
-library(leaflet.extras)
-library(leafgl)
-library(sf)
-library(shinyBS)
-library(DBI)
-library(RPostgres)
-library(rpostgis)
-library(vroom)
-library(fontawesome)
-
-con <-
-    DBI::dbConnect(
-        RPostgres::Postgres(),
-        user = "postgres",
-        password = Sys.getenv("PG_PWD"),
-        host = "127.0.0.1",
-        port = 5432,
-        dbname = "wsdot_evse_sp"
-    )
-
-# WA roads data
-wa_roads <- readRDS(here::here("data-raw", "wa_roads.Rds"))
-
-# Read the EVSE information through the AFDC API
-afdc_url  <-
-    paste0(
-        "https://developer.nrel.gov/api/alt-fuel-stations/v1.csv?fuel_type=ELEC&state=WA&ev_charging_level=dc_fast&status=E&access=public&api_key=",
-        Sys.getenv('AFDC_API_KEY')
-    )
-evse_dcfc <- vroom::vroom(afdc_url, delim = ",")
-nevses <- nrow(evse_dcfc)
-# TODO: Add a fallback clause in the case the API is non-responsive
-
-evse_dcfc <-
-    tibble::add_column(evse_dcfc,
-                       EV_Connector_Code = 0,
-                       ChargingCost = 0)
-#ibble::add_column(evse_dcfc,)
-
-# Convert the connector type to code for easy parsing in GAMA
-# CHADEMO only - 1
-# J1772COMBO only - 2
-# CHADEMO and J1772COMBO - 3
-# TESLA - 4
-# Ignore J1772 as it is level-2
-for (i in 1:nrow(evse_dcfc)) {
-    conns <- evse_dcfc$`EV Connector Types`[i]
-    if (grepl("CHADEMO", conns)) {
-        if (grepl("J1772COMBO", conns)) {
-            evse_dcfc$EV_Connector_Code[i] <- 3
-        } else {
-            evse_dcfc$EV_Connector_Code[i] <- 1
-        }
-    } else if (grepl("J1772COMBO", conns)) {
-        evse_dcfc$EV_Connector_Code[i] <- 2
-    } else if (grepl("TESLA", conns)) {
-        evse_dcfc$EV_Connector_Code[i] <- 4
-    }
-}
-
-all_chargers_combo <-
-    evse_dcfc[evse_dcfc$EV_Connector_Code == 2 |
-                  evse_dcfc$EV_Connector_Code == 3, ]
-
-all_chargers_chademo <-
-    evse_dcfc[evse_dcfc$EV_Connector_Code == 1 |
-                  evse_dcfc$EV_Connector_Code == 3, ]
-
-base_layers <- c("Combo", "CHAdeMO")
-
-combo_icons <-
-    icons(
-        iconUrl = "https://upload.wikimedia.org/wikipedia/commons/7/7d/Symbol_electric_vehicle_charging_stations.jpg",
-        iconWidth = 10,
-        iconHeight = 10,
-        iconAnchorX = 0,
-        iconAnchorY = 0
-    )
-car_icons <- awesomeIcons(icon = "car", library = "fa")
-wa_map <- leaflet(options = leafletOptions(preferCanvas = TRUE)) %>%
-    setMaxBounds(-124.8361, 45.5437, -116.9174, 49.0024) %>%
-    addProviderTiles("MapBox",
-                     options = providerTileOptions(
-                         id = "mapbox.light",
-                         noWrap = FALSE,
-                         accessToken = Sys.getenv('MAPBOX_ACCESS_TOKEN')
-                     ))  %>%
-    addGlPolylines(data = wa_roads, opacity = 1) %>%
-    addResetMapButton() %>%
-    addSearchOSM()
-
-finished_files <-
-    list.files(path = here::here("finished"), pattern = "*.csv")
-
-# This function returns the simulated date and
-# simulation run date time from the file name
-finished_filename_parser <- function(fname) {
-    date_part <- substr(fname, nchar(fname) - 33, nchar(fname) - 4)
-    # print(date_part)
-    parts <- strsplit(date_part, split = "_")
-    simulated_date <- parts[[1]][1]
-    simulation_runtime <- parts[[1]][2]
-    return(c(simulated_date, simulation_runtime))
-}
-
-finished_parts <- lapply(finished_files, finished_filename_parser)
-finished_simulated_dates <- lapply(finished_parts, `[[`, 1)
-finished_simulation_runtimes <- lapply(finished_parts, `[[`, 2)
-
-sim_df <-
-    data.frame(
-        sim_dates = unlist(finished_simulated_dates),
-        sim_times = unlist(finished_simulation_runtimes),
-        stringsAsFactors = FALSE
-    )
+source("global.R")
 
 ###################
 ### UI ###########
@@ -215,9 +76,56 @@ evse_util_tab <- bs4TabItem(tabName = "evse_util",
                                     width = NULL,
                                     solidHeader = TRUE,
                                     withSpinner(
-                                        leafglOutput("wa_evse_mapout", height = 700),
+                                        leafglOutput("wa_evse_util_mapout", height = 700),
                                         type = 8,
                                         color = "#0dc5c1"
+                                    )
+                                )
+                            ), column(
+                                width = 3,
+                                bs4Card(
+                                    width = 12,
+                                    title = "Start and End Time Selector",
+                                    closable = FALSE,
+                                    sliderInput(
+                                        "evse_util_slider",
+                                        label = "Time Range",
+                                        min = 0,
+                                        max = 24,
+                                        value = c(0, 24)
+                                    )
+                                )
+                            )))
+
+evse_busy_tab <- bs4TabItem(tabName = "evse_busy",
+                            fluidRow(column(
+                                width = 9,
+                                bs4Card(
+                                    title = "EVSE Busy Details",
+                                    closable = FALSE,
+                                    status = "warning",
+                                    collapsible = TRUE,
+                                    elevation = 4,
+                                    width = NULL,
+                                    solidHeader = TRUE,
+                                    withSpinner(
+                                        leafglOutput("wa_evse_busy_mapout", height = 700),
+                                        type = 8,
+                                        color = "#0dc5c1"
+                                    )
+                                )
+                            ), column(
+                                width = 3,
+                                bs4Card(
+                                    width = 12,
+                                    title = "Start and End Time Selector",
+                                    closable = FALSE,
+                                    sliderInput(
+                                        "evse_busy_slider",
+                                        label = "Time Range",
+                                        min = 0,
+                                        max = 23,
+                                        value = c(0, 24)
                                     )
                                 )
                             )))
@@ -286,7 +194,8 @@ summary_tab <- bs4TabItem(
         bs4InfoBoxOutput("finished_count"),
         bs4InfoBoxOutput("out_of_charge_count"),
         bs4InfoBoxOutput("evmt_count"),
-        bs4InfoBoxOutput("charging_session_count")
+        bs4InfoBoxOutput("charging_session_count"),
+        bs4InfoBoxOutput("evs_passed_count")
         
     )
 )
@@ -344,6 +253,11 @@ ui <- bs4DashPage(
                 icon = "poll",
                 startExpanded = TRUE,
                 bs4SidebarMenuSubItem(
+                    text = "Summary Stats",
+                    tabName = "summary",
+                    icon = "chart-bar"
+                ),
+                bs4SidebarMenuSubItem(
                     text = "Finished",
                     tabName = "finished",
                     icon = "route"
@@ -351,18 +265,19 @@ ui <- bs4DashPage(
                 bs4SidebarMenuSubItem(
                     text = "EVSE Utilization",
                     tabName = "evse_util",
-                    icon = "file-invoice"
+                    icon = "charging-station"
+                ),
+                bs4SidebarMenuSubItem(
+                    text = "EVSE Busy",
+                    tabName = "evse_busy",
+                    icon = "thermometer-full"
                 ),
                 bs4SidebarMenuSubItem(
                     text = "Out of charge",
                     tabName = "out_of_charge",
                     icon = "battery-empty"
-                ),
-                bs4SidebarMenuSubItem(
-                    text = "Summary Stats",
-                    tabName = "summary",
-                    icon = "chart-bar"
                 )
+                
             )
         )
     ),
@@ -389,10 +304,13 @@ ui <- bs4DashPage(
                 '
             )
             )),
-        bs4TabItems(finished_tab,
-                    evse_util_tab,
-                    out_of_charge_tab,
-                    summary_tab)
+        bs4TabItems(
+            summary_tab,
+            finished_tab,
+            evse_util_tab,
+            evse_busy_tab,
+            out_of_charge_tab
+        )
             )
         )
 
@@ -404,6 +322,7 @@ server <- function(input, output, session) {
         out_of_charge_df = data.frame(),
         power_draw_df = data.frame(),
         charging_session_df = data.frame(),
+        evs_passed_df = data.frame(),
         evse_util_df = data.frame(),
         soc_df = data.frame(),
         lat_df = data.frame(),
@@ -413,7 +332,9 @@ server <- function(input, output, session) {
         tocharge_df = data.frame(),
         trip_scenario_day_df = data.frame(),
         od_layer = NULL,
-        tp_layer = NULL
+        tp_layer = NULL,
+        ev_pass_combo = data.frame(),
+        ev_pass_chademo = data.frame()
     )
     
     clearMapOverlay <- function(mapID) {
@@ -424,6 +345,169 @@ server <- function(input, output, session) {
             clearGroup(group = "shortest_path") %>%
             clearGroup(group = "charging_sessions")
     }
+    
+    clearMapBusy <- function() {
+        print("clearing busy now")
+        leafletProxy(mapId = "wa_evse_busy_mapout") %>%
+            clearGroup(group = "busy_combo")  %>%
+            clearGroup(group = "busy_chademo")
+        
+    }
+    
+    plot_trajectory <- function(tab_name) {
+        if (tab_name == "finished") {
+            relevant_df <- rvData$finished_df
+            waypoint_color <- "#75d654"
+            dest_color <- "#420db5"
+            orig_color <- "#960db5"
+            dest_ui_element <- input$select_destination_fin
+            orig_ui_element <- input$select_origin_fin
+            map_id <- "wa_fin_mapout"
+        } else if (tab_name == "out_of_charge") {
+            relevant_df <- rvData$out_of_charge_df
+            waypoint_color <- "#b50d2c"
+            dest_color <- "#FF5733"
+            orig_color <- "#FFC300"
+            dest_ui_element <- input$select_destination_ooc
+            orig_ui_element <- input$select_origin_ooc
+            map_id <- "wa_ooc_mapout"
+        }
+        
+        clearMapOverlay(mapID = map_id)
+        
+        if (!rapportools::is.empty(dest_ui_element)) {
+            relevant_row <-
+                relevant_df[(
+                    relevant_df$origin_zip == orig_ui_element &
+                        relevant_df$destination_zip == dest_ui_element
+                ), ]
+            if (nrow(relevant_row) == 1) {
+                veh_id <-
+                    relevant_row$veh_ID # paste0("X", trimws(finished_row$veh_ID))
+                dt <- rvData$lat_df$datetime
+                lats <- as.numeric(rvData$lat_df[[veh_id]])
+                lngs <- as.numeric(rvData$lng_df[[veh_id]])
+                
+                socs <-
+                    paste("SOC:", round(as.numeric(rvData$soc_df[[veh_id]]), 2))
+                tocharges <-
+                    paste("To charge:", rvData$tocharge_df[[veh_id]])
+                probs <-
+                    paste("Probability:", round(as.numeric(rvData$prob_df[[veh_id]]), 3))
+                states <- paste("State:", rvData$state_df[[veh_id]])
+                
+                ev_info_df <-
+                    data.frame(socs,
+                               tocharges,
+                               probs,
+                               states,
+                               stringsAsFactors = FALSE)
+                
+                trip_row <-
+                    rvData$trip_scenario_day_df[which(rvData$trip_scenario_day_df$ulid == trimws(relevant_row$veh_ID)),]
+                od_lats <-
+                    c(trip_row$Origin_Lat,
+                      trip_row$Destination_Lat)
+                od_lngs <-
+                    c(trip_row$Origin_Lon,
+                      trip_row$Destination_Lon)
+                rvData$od_layer <- rep("od_points", length(od_lats))
+                rvData$tp_layer <- rep("travel_path", length(lats))
+                
+                cs_df <-
+                    rvData$charging_session_df[which(rvData$charging_session_df$veh_ID == veh_id),]
+                
+                evse_rows <- match(cs_df$evse_id, evse_dcfc$ID)
+                cs_lats <-
+                    evse_dcfc$Latitude[evse_rows]
+                cs_lngs <-
+                    evse_dcfc$Longitude[evse_rows]
+                
+                leafletProxy(mapId = map_id) %>%
+                    addMapPane(name = "od_points", zIndex = 410) %>%
+                    addMapPane(name = "travel_path", zIndex = 490) %>%
+                    addMapPane(name = "charging_sessions", zIndex = 491) %>%
+                    addCircleMarkers(
+                        lat = od_lats[1],
+                        lng = od_lngs[1],
+                        radius = 12,
+                        color = orig_color,
+                        group = "od_points",
+                        stroke = FALSE,
+                        fillOpacity = 0.5,
+                        label = paste0("Origin: ", orig_ui_element),
+                        labelOptions = labelOptions(noHide = T),
+                        options = pathOptions(pane = "od_points")
+                        
+                    ) %>% addCircleMarkers(
+                        lat = od_lats[2],
+                        lng = od_lngs[2],
+                        radius = 12,
+                        color = dest_color,
+                        group = "od_points",
+                        stroke = FALSE,
+                        fillOpacity = 0.5,
+                        label = paste0("Destination: ",
+                                       dest_ui_element),
+                        labelOptions = labelOptions(noHide = T),
+                        options = pathOptions(pane = "od_points")
+                        
+                    ) %>%
+                    addCircleMarkers(
+                        lat = lats,
+                        lng = lngs,
+                        radius = 4,
+                        color = waypoint_color,
+                        popup = paste(
+                            sep = "<br>",
+                            ev_info_df$socs,
+                            ev_info_df$tocharges,
+                            ev_info_df$probs,
+                            ev_info_df$states
+                        ),
+                        label = paste(
+                            sep = "\n",
+                            ev_info_df$socs,
+                            ev_info_df$tocharges,
+                            ev_info_df$probs,
+                            ev_info_df$states
+                        ),
+                        group = "travel_path",
+                        stroke = FALSE,
+                        fillOpacity = 0.5,
+                        options = pathOptions(pane = "travel_path")
+                    )
+                
+                # Overlay charging session info
+                if (nrow(cs_df) >= 1) {
+                    leafletProxy(mapId = map_id) %>%
+                        addCircleMarkers(
+                            lat = cs_lats,
+                            lng = cs_lngs,
+                            radius = 12,
+                            group = "charging_sessions",
+                            popup = paste(
+                                sep = "<br>",
+                                "Charging session:",
+                                row.names(cs_df),
+                                "Starting SOC:",
+                                round(as.numeric(cs_df$starting_SOC), 2),
+                                "Ending SOC:",
+                                round(as.numeric(cs_df$ending_SOC))
+                            ),
+                            label = row.names(cs_df),
+                            labelOptions = labelOptions(noHide = T, textsize = "18px"),
+                            stroke = FALSE,
+                            fillOpacity = 0.8,
+                            options = pathOptions(pane = "charging_sessions")
+                        )
+                }
+                
+            }
+            
+        }
+    }
+    
     
     output$wa_fin_mapout <- renderLeaflet({
         wa_map %>%
@@ -450,17 +534,6 @@ server <- function(input, output, session) {
     output$wa_ooc_mapout <- renderLeaflet({
         od_str <- NULL
         
-        for (i in 1:length(rvData$out_of_charge_df)) {
-            od_str <-
-                append(
-                    od_str,
-                    paste(
-                        rvData$out_of_charge_df$origin_zip[i],
-                        rvData$out_of_charge_df$destination_zip[i],
-                        sep = "->"
-                    )
-                )
-        }
         wa_map %>%
             addMarkers(
                 lng = ~ Longitude ,
@@ -479,13 +552,20 @@ server <- function(input, output, session) {
                 data = all_chargers_chademo
             ) %>%
             addCircleMarkers(
-                data = rvData$out_of_charge_df,
-                lat = ~ latitude,
-                lng = ~ longitude,
+                lat = rvData$out_of_charge_df$latitude,
+                lng = rvData$out_of_charge_df$longitude,
                 radius = 4,
                 color = "#D5696F",
-                popup = od_str,
-                label = od_str,
+                popup =                     paste(
+                    rvData$out_of_charge_df$origin_zip,
+                    rvData$out_of_charge_df$destination_zip,
+                    sep = "->"
+                ),
+                label =                     paste(
+                    rvData$out_of_charge_df$origin_zip,
+                    rvData$out_of_charge_df$destination_zip,
+                    sep = "->"
+                ),
                 stroke = FALSE,
                 fillOpacity = 0.5
             ) %>%
@@ -495,7 +575,7 @@ server <- function(input, output, session) {
         # print("After markers")
     })
     
-    output$wa_evse_mapout <- renderLeaflet({
+    output$wa_evse_util_mapout <- renderLeaflet({
         wa_map %>%
             addMarkers(
                 lng = ~ Longitude ,
@@ -517,21 +597,73 @@ server <- function(input, output, session) {
                              options = layersControlOptions(collapsed = FALSE))
     })
     
-    observeEvent(input$wa_evse_mapout_marker_click, {
-        id = input$wa_evse_mapout_marker_click$id
+    output$wa_evse_busy_mapout <- renderLeaflet({
+        wa_map %>%
+            addMapPane(name = "chargers", zIndex = 410) %>%
+            addMapPane(name = "busy_count", zIndex = 491) %>%
+            addMarkers(
+                lng = ~ Longitude ,
+                lat = ~ Latitude,
+                layerId = ~ ID,
+                icon = combo_icons,
+                group = base_layers[1],
+                data = all_chargers_combo,
+                options = pathOptions(pane = "chargers")
+            )  %>%
+            addMarkers(
+                lng = ~ Longitude ,
+                lat = ~ Latitude,
+                layerId = ~ ID,
+                icon = combo_icons,
+                group = base_layers[2],
+                data = all_chargers_chademo,
+                options = pathOptions(pane = "chargers")
+            ) %>%
+            addLayersControl(overlayGroups = base_layers,
+                             options = layersControlOptions(collapsed = FALSE))
+    })
+    
+    observeEvent(input$wa_evse_util_mapout_marker_click, {
+        id = input$wa_evse_util_mapout_marker_click$id
         print(id)
+        ## TODO:
+        ### Make the data filter with time
+        ### Add other indication to the map, so we dont have to click each and every charger
+        ### maybe evs_served
         
         if (!rapportools::is.empty(rvData$simulation_runtime)) {
+            range_start_time <-
+                as.POSIXct(paste(
+                    input$select_date,
+                    paste(input$evse_util_slider[1], 0, 0, sep = ":")
+                ),
+                tz = "Etc/GMT+8",
+                format = "%Y-%m-%d %H:%M:%S")
+            range_end_time <-
+                as.POSIXct(paste(
+                    input$select_date,
+                    paste(input$evse_util_slider[2], 0, 0, sep = ":")
+                ),
+                tz = "Etc/GMT+8",
+                format = "%Y-%m-%d %H:%M:%S")
+            
             power_draw_evse <-
-                as.data.frame(rvData$power_draw_df[, names(rvData$power_draw_df) %in% c("datetime", id)])
-            evse_util <-
-                round(rvData$evse_util_df$energy_consumed[which(rvData$evse_util_df$evse_id == id)], 2)
+                as.data.frame(rvData$power_draw_df[, names(rvData$power_draw_df) %in% c("datetime", id)]) %>% 
+                dplyr::mutate(datetime = as.POSIXct(as.numeric(datetime), origin = as.POSIXct("1970-01-01", tz = "Etc/GMT+8"), tz = "Etc/GMT+8")) %>%
+                                  dplyr::filter(datetime >= range_start_time & datetime <= range_end_time)
+            # evse_util <-
+            #     round(rvData$evse_util_df$energy_consumed[which(rvData$evse_util_df$evse_id == id)], 2)
+            # Evse util is Int(P)dt
+            evse_util <- sum(as.numeric(power_draw_evse[[as.character(id)]])) / 60
             chademo_count <-
                 all_chargers_chademo$`EV DC Fast Count`[all_chargers_chademo$ID == id]
             combo_count <-
                 all_chargers_combo$`EV DC Fast Count`[all_chargers_combo$ID == id]
             
-            
+            evs_charged <-
+                length(which(rvData$charging_session_df$evse_id == id))
+            evs_passed <-
+                length(which(rvData$evs_passed_df$evse_id == id))
             
             if (ncol(power_draw_evse) == 2) {
                 showModal(
@@ -558,13 +690,15 @@ server <- function(input, output, session) {
                                     bs4TableItem(dataCell = TRUE,
                                                  combo_count),
                                     bs4TableItem(dataCell = TRUE,
-                                                 combo_count)
+                                                 evs_charged),
+                                    bs4TableItem(dataCell = TRUE,
+                                                 evs_passed)
                                 )
                             )
                         ),
                         renderPlot(
                             plot(
-                                x = lubridate::as_datetime(power_draw_evse$datetime),
+                                x = power_draw_evse$datetime,
                                 y = as.numeric(power_draw_evse[[as.character(id)]]),
                                 type = "l",
                                 main = "Power vs Time of day",
@@ -598,10 +732,38 @@ server <- function(input, output, session) {
         }
     })
     
+    # TODO: This just a placeholder for now
+    observeEvent(input$wa_evse_busy_mapout_marker_click, {
+        id = input$wa_evse_busy_mapout_marker_click$id
+        print(id)
+        
+        if (!rapportools::is.empty(rvData$simulation_runtime)) {
+            # else {
+            #     showModal(
+            #         modalDialog(
+            #             size = "s",
+            #             easyClose = TRUE,
+            #             "The charging station seems to be new and we do not have any data for it yet.",
+            #             fade = FALSE
+            #         )
+            #     )
+            # }
+        } else {
+            showModal(
+                modalDialog(
+                    size = "s",
+                    easyClose = TRUE,
+                    "Select a simulation date and run time to see the EVSE utilization."
+                )
+            )
+        }
+    })
+    
     session$onFlushed(function() {
         
     })
     
+    # When the date is selected, the simulated date time dropdown is populated
     observeEvent(input$select_date, {
         print("Date selected")
         
@@ -612,6 +774,7 @@ server <- function(input, output, session) {
                           choices =  sim_df$sim_times[which(sim_df$sim_dates == input$select_date)])
     })
     
+    # When origin zip is selected the corresponding destination dropdown is populated
     observeEvent(input$select_origin_ooc, {
         if (!rapportools::is.empty(input$select_origin_ooc)) {
             updateSelectInput(
@@ -622,6 +785,7 @@ server <- function(input, output, session) {
         }
     })
     
+    # When origin zip is selected the corresponding destination dropdown is populated
     observeEvent(input$select_origin_fin, {
         if (!rapportools::is.empty(input$select_origin_fin)) {
             updateSelectInput(
@@ -633,312 +797,16 @@ server <- function(input, output, session) {
     })
     
     observeEvent(input$select_destination_fin, {
-        clearMapOverlay("wa_fin_mapout")
-        
-        if (!rapportools::is.empty(input$select_destination_fin)) {
-            finished_row <-
-                rvData$finished_df[(
-                    rvData$finished_df$origin_zip == input$select_origin_fin &
-                        rvData$finished_df$destination_zip == input$select_destination_fin
-                ),]
-            if (nrow(finished_row) == 1) {
-                veh_id <-
-                    finished_row$veh_ID # paste0("X", trimws(finished_row$veh_ID))
-                dt <- rvData$lat_df$datetime
-                lats <- as.numeric(rvData$lat_df[[veh_id]])
-                lngs <- as.numeric(rvData$lng_df[[veh_id]])
-                
-                socs <-
-                    paste("SOC:", round(as.numeric(rvData$soc_df[[veh_id]]), 2))
-                tocharges <-
-                    paste("To charge:", rvData$tocharge_df[[veh_id]])
-                probs <-
-                    paste("Probability:", round(as.numeric(rvData$prob_df[[veh_id]], 2)))
-                states <- paste("State:", rvData$state_df[[veh_id]])
-                
-                ev_info_df <-
-                    data.frame(socs,
-                               tocharges,
-                               probs,
-                               states,
-                               stringsAsFactors = FALSE)
-                
-                trip_row <-
-                    rvData$trip_scenario_day_df[which(rvData$trip_scenario_day_df$ulid == trimws(finished_row$veh_ID)), ]
-                od_lats <-
-                    c(trip_row$Origin_Lat,
-                      trip_row$Destination_Lat)
-                od_lngs <-
-                    c(trip_row$Origin_Lon,
-                      trip_row$Destination_Lon)
-                rvData$od_layer <- rep("od_points", length(od_lats))
-                rvData$tp_layer <- rep("travel_path", length(lats))
-                dbq <-
-                    paste0(
-                        "select * from shortest_path_od2(",
-                        input$select_origin_fin,
-                        " ," ,
-                        input$select_destination_fin,
-                        ")"
-                    )
-                sp_res <- DBI::dbSendQuery(con, dbq)
-                sp_obj <- DBI::dbFetch(sp_res)
-                spath <- st_as_sfc(sp_obj$shortest_path)
-                DBI::dbClearResult(sp_res)
-                
-                cs_df <-
-                    rvData$charging_session_df[which(rvData$charging_session_df$veh_ID == veh_id), ]
-                cs_lats <-
-                    evse_dcfc$Latitude[which(evse_dcfc$ID == cs_df$evse_id)]
-                cs_lngs <-
-                    evse_dcfc$Longitude[which(evse_dcfc$ID == cs_df$evse_id)]
-                
-                leafletProxy(mapId = "wa_fin_mapout") %>%
-                    addMapPane(name = "od_points", zIndex = 410) %>%
-                    addMapPane(name = "travel_path", zIndex = 490) %>%
-                    addMapPane(name = "charging_sessions", zIndex = 491) %>%
-                    addCircleMarkers(
-                        lat = od_lats[1],
-                        lng = od_lngs[1],
-                        radius = 12,
-                        color = "#960db5",
-                        group = "od_points",
-                        stroke = FALSE,
-                        fillOpacity = 0.5,
-                        label = paste0("Origin: ", input$select_origin_fin),
-                        labelOptions = labelOptions(noHide = T),
-                        options = pathOptions(pane = "od_points")
-                        
-                    ) %>% addCircleMarkers(
-                        lat = od_lats[2],
-                        lng = od_lngs[2],
-                        radius = 12,
-                        color = "#420db5",
-                        group = "od_points",
-                        stroke = FALSE,
-                        fillOpacity = 0.5,
-                        label = paste0(
-                            "Destination: ",
-                            input$select_destination_fin
-                        ),
-                        labelOptions = labelOptions(noHide = T),
-                        options = pathOptions(pane = "od_points")
-                        
-                    ) %>%
-                    addCircleMarkers(
-                        lat = lats,
-                        lng = lngs,
-                        radius = 4,
-                        color = " #75d654",
-                        popup = paste(
-                            sep = "<br>",
-                            ev_info_df$socs,
-                            ev_info_df$tocharges,
-                            ev_info_df$probs,
-                            ev_info_df$states
-                        ),
-                        label = paste(
-                            sep = "\n",
-                            ev_info_df$socs,
-                            ev_info_df$tocharges,
-                            ev_info_df$probs,
-                            ev_info_df$states
-                        ),
-                        group = "travel_path",
-                        stroke = FALSE,
-                        fillOpacity = 0.5,
-                        options = pathOptions(pane = "travel_path")
-                    ) %>%
-                    addPolylines(
-                        data = spath,
-                        color = "#3371ff",
-                        group = "shortest_path",
-                        opacity = 1
-                    )
-                
-                if (nrow(cs_df) >= 1) {
-                    leafletProxy(mapId = "wa_fin_mapout") %>%
-                        addCircleMarkers(
-                            lat = cs_lats,
-                            lng = cs_lngs,
-                            radius = 12,
-                            group = "charging_sessions",
-                            popup = paste(
-                                sep = "<br>",
-                                "Charging session:",
-                                row.names(cs_df),
-                                "Starting SOC:",
-                                round(as.numeric(cs_df$starting_SOC), 2),
-                                "Ending SOC:",
-                                round(as.numeric(cs_df$ending_SOC))
-                            ),
-                            label = row.names(cs_df),
-                            labelOptions = labelOptions(noHide = T, textsize = "18px"),
-                            stroke = FALSE,
-                            fillOpacity = 0.8,
-                            options = pathOptions(pane = "charging_sessions")
-                        )
-                }
-                
-            }
-            
-        }
+        plot_trajectory("finished")
     })
     
     observeEvent(input$select_destination_ooc, {
-        clearMapOverlay("wa_ooc_mapout")
-        
-        if (!rapportools::is.empty(input$select_destination_ooc)) {
-            out_of_charge_row <-
-                rvData$out_of_charge_df[(
-                    rvData$out_of_charge_df$origin_zip == input$select_origin_ooc &
-                        rvData$out_of_charge_df$destination_zip == input$select_destination_ooc
-                ),]
-            if (nrow(out_of_charge_row) == 1) {
-                veh_id <-
-                    out_of_charge_row$veh_ID # paste0("X", trimws(out_of_charge_row$veh_ID))
-                dt <- rvData$lat_df$datetime
-                lats <- as.numeric(rvData$lat_df[[veh_id]])
-                lngs <- as.numeric(rvData$lng_df[[veh_id]])
-                socs <-
-                    paste("SOC:", round(as.numeric(rvData$soc_df[[veh_id]]), 2))
-                tocharges <-
-                    paste("To charge:", rvData$tocharge_df[[veh_id]])
-                probs <-
-                    paste("Probability:", round(as.numeric(rvData$prob_df[[veh_id]], 2)))
-                states <- paste("State:", rvData$state_df[[veh_id]])
-                
-                ev_info_df <-
-                    data.frame(socs,
-                               tocharges,
-                               probs,
-                               states,
-                               stringsAsFactors = FALSE)
-                
-                trip_row <-
-                    rvData$trip_scenario_day_df[which(
-                        rvData$trip_scenario_day_df$ulid == trimws(out_of_charge_row$veh_ID)
-                    ), ]
-                od_lats <-
-                    c(trip_row$Origin_Lat,
-                      trip_row$Destination_Lat)
-                od_lngs <-
-                    c(trip_row$Origin_Lon,
-                      trip_row$Destination_Lon)
-                dbq <-
-                    paste0(
-                        "select * from shortest_path_od2(",
-                        input$select_origin_ooc,
-                        " ," ,
-                        input$select_destination_ooc,
-                        ")"
-                    )
-                sp_res <- DBI::dbSendQuery(con, dbq)
-                sp_obj <- DBI::dbFetch(sp_res)
-                spath <- st_as_sfc(sp_obj$shortest_path)
-                DBI::dbClearResult(sp_res)
-                
-                cs_df <-
-                    rvData$charging_session_df[which(rvData$charging_session_df$veh_ID == veh_id), ]
-                cs_lats <-
-                    evse_dcfc$Latitude[which(evse_dcfc$ID == cs_df$evse_id)]
-                cs_lngs <-
-                    evse_dcfc$Longitude[which(evse_dcfc$ID == cs_df$evse_id)]
-                
-                leafletProxy(mapId = "wa_ooc_mapout") %>%
-                    addMapPane(name = "od_points", zIndex = 410) %>%
-                    addMapPane(name = "travel_path", zIndex = 490) %>%
-                    addMapPane(name = "charging_sessions", zIndex = 491) %>%
-                    addCircleMarkers(
-                        lat = od_lats[1],
-                        lng = od_lngs[1],
-                        radius = 12,
-                        color = "#FFC300",
-                        group = "od_points",
-                        stroke = FALSE,
-                        fillOpacity = 0.5,
-                        label = paste0("Origin: ", input$select_origin_ooc),
-                        labelOptions = labelOptions(noHide = T),
-                        options = pathOptions(pane = "od_points")
-                        
-                    ) %>% addCircleMarkers(
-                        lat = od_lats[2],
-                        lng = od_lngs[2],
-                        radius = 12,
-                        color = "#FF5733",
-                        group = "od_points",
-                        stroke = FALSE,
-                        fillOpacity = 0.5,
-                        label = paste0(
-                            "Destination: ",
-                            input$select_destination_ooc
-                        ),
-                        labelOptions = labelOptions(noHide = T),
-                        options = pathOptions(pane = "od_points")
-                        
-                    ) %>%
-                    addCircleMarkers(
-                        lat = lats,
-                        lng = lngs,
-                        radius = 4,
-                        color = "#b50d2c",
-                        popup = paste(
-                            sep = "<br>",
-                            ev_info_df$socs,
-                            ev_info_df$tocharges,
-                            ev_info_df$probs,
-                            ev_info_df$states
-                        ),
-                        label = paste(
-                            sep = "\n",
-                            ev_info_df$socs,
-                            ev_info_df$tocharges,
-                            ev_info_df$probs,
-                            ev_info_df$states
-                        ),
-                        group = "travel_path",
-                        stroke = FALSE,
-                        fillOpacity = 0.5,
-                        options = pathOptions(pane = "travel_path")
-                    ) %>%
-                    addPolylines(
-                        data = spath,
-                        color = "#3371ff",
-                        group = "shortest_path",
-                        opacity = 1
-                    )
-                
-                if (nrow(cs_df) >= 1) {
-                    leafletProxy(mapId = "wa_ooc_mapout") %>%
-                        addCircleMarkers(
-                            lat = cs_lats,
-                            lng = cs_lngs,
-                            radius = 12,
-                            group = "charging_sessions",
-                            popup = paste(
-                                sep = "<br>",
-                                "Charging session:",
-                                row.names(cs_df),
-                                "Starting SOC:",
-                                round(as.numeric(cs_df$starting_SOC)),
-                                "Ending SOC:",
-                                round(as.numeric(cs_df$ending_SOC))
-                            ),
-                            label = row.names(cs_df),
-                            labelOptions = labelOptions(noHide = T, textsize = "20px"),
-                            stroke = FALSE,
-                            fillOpacity = 0.8,
-                            options = pathOptions(pane = "charging_sessions")
-                        )
-                }
-                
-            }
-            
-        }
+        plot_trajectory("out_of_charge")
     })
     
     observeEvent(input$select_datetime, {
         print("Datetime selected")
+        clearMapBusy()
         rvData$simulation_runtime <- input$select_datetime
         if (!rapportools::is.empty(rvData$simulation_runtime)) {
             trip_scenario_day_file <-
@@ -973,10 +841,9 @@ server <- function(input, output, session) {
             power_draw_file <-
                 list.files("power_draw", pattern = sim_str)
             rvData$power_draw_df <-
-                vroom::vroom(
-                    here::here("power_draw", power_draw_file),
-                    delim = ",")
-
+                vroom::vroom(here::here("power_draw", power_draw_file),
+                             delim = ",")
+            
             out_of_charge_file <-
                 list.files("out_of_charge", pattern = sim_str)
             rvData$out_of_charge_df <-
@@ -992,6 +859,15 @@ server <- function(input, output, session) {
                     here::here("finished", finished_file),
                     delim = ",",
                     col_types = "cciiddd"
+                )
+            
+            evs_passed_file <-
+                list.files("evs_passed", pattern = sim_str)
+            rvData$evs_passed_df <-
+                vroom::vroom(
+                    here::here("evs_passed", evs_passed_file),
+                    delim = ",",
+                    col_types = "cicd"
                 )
             
             soc_str <- paste("soc", sim_str, sep = "_")
@@ -1115,6 +991,94 @@ server <- function(input, output, session) {
                     icon = "charging-station"
                 )
             })
+            
+            output$evs_passed_count <- renderbs4InfoBox({
+                bs4InfoBox(
+                    value = nrow(rvData$evs_passed_df),
+                    title = "Number of EVs passed",
+                    icon = "square-full"
+                )
+            })
+            
+            # Merge to get the connector code etc. info with the OOC cars
+            rvData$out_of_charge_df <-
+                merge(
+                    rvData$out_of_charge_df,
+                    rvData$trip_scenario_day_df[, c(
+                        "ConnectorCode",
+                        "County",
+                        "Make",
+                        "Model",
+                        "Model.Year",
+                        "Electric.Range",
+                        "City",
+                        "ZIP.Code",
+                        "ulid"
+                    )],
+                    by.x = "veh_ID",
+                    by.y = "ulid"
+                )
+            
+            count_passed_evse <-
+                rvData$evs_passed_df %>% dplyr::group_by(evse_id) %>% dplyr::summarise(evs_count = n())
+            print(nrow(count_passed_evse))
+            rvData$ev_pass_evse_combo <-
+                merge(
+                    all_chargers_combo[, c("ID", "Latitude", "Longitude")],
+                    count_passed_evse,
+                    by.x = "ID",
+                    by.y = "evse_id",
+                    all.x = TRUE
+                )
+            rvData$ev_pass_evse_chademo <-
+                merge(
+                    all_chargers_chademo[, c("ID", "Latitude", "Longitude")],
+                    count_passed_evse,
+                    by.x = "ID",
+                    by.y = "evse_id",
+                    all.x = TRUE
+                )
+            rvData$ev_pass_evse_combo <-
+                tidyr::replace_na(rvData$ev_pass_evse_combo, list(evs_count = 0))
+            rvData$ev_pass_evse_chademo <-
+                tidyr::replace_na(rvData$ev_pass_evse_chademo, list(evs_count = 0))
+            
+            leafletProxy(mapId = "wa_evse_busy_mapout") %>%
+                addCircleMarkers(
+                    lng = ~ Longitude ,
+                    lat = ~ Latitude,
+                    group = "busy_combo",
+                    data = rvData$ev_pass_evse_combo,
+                    stroke = FALSE,
+                    fillOpacity = 0.8,
+                    color = "#ff5b33",
+                    radius = 10 * as.numeric(rvData$ev_pass_evse_combo$evs_count),
+                    label = ~ evs_count,
+                    popup = ~ evs_count,
+                    labelOptions = labelOptions(
+                        noHide = TRUE,
+                        offset = c(0, -12),
+                        textOnly = TRUE
+                    ),
+                    options = pathOptions(pane = "busy_count")
+                )  %>%
+                addCircleMarkers(
+                    lng = ~ Longitude ,
+                    lat = ~ Latitude,
+                    group = "busy_chademo",
+                    data = rvData$ev_pass_evse_chademo,
+                    stroke = FALSE,
+                    fillOpacity = 0.8,
+                    radius = 10 * as.numeric(rvData$ev_pass_evse_chademo$evs_count),
+                    label = rvData$ev_pass_evse_chademo$evs_count,
+                    popup = rvData$ev_pass_evse_chademo$evs_count,
+                    color = "#9c0215",
+                    labelOptions = labelOptions(noHide = TRUE,
+                                                
+                                                textOnly = TRUE),
+                    options = pathOptions(pane = "busy_count")
+                )
+            
         }
         
     })
