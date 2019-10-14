@@ -19,7 +19,7 @@ finished_tab <- bs4TabItem(tabName = "finished",
                                    width = NULL,
                                    solidHeader = TRUE,
                                    withSpinner(
-                                       leafglOutput("wa_fin_mapout", height = 700),
+                                       leafletOutput("wa_fin_mapout", height = 700),
                                        type = 8,
                                        color = "#0dc5c1"
                                    )
@@ -74,7 +74,7 @@ evse_util_tab <- bs4TabItem(tabName = "evse_util",
                                     width = NULL,
                                     solidHeader = TRUE,
                                     withSpinner(
-                                        leafglOutput("wa_evse_util_mapout", height = 700),
+                                        leafletOutput("wa_evse_util_mapout", height = 700),
                                         type = 8,
                                         color = "#0dc5c1"
                                     )
@@ -107,7 +107,7 @@ evse_serve_pass_tab <- bs4TabItem(tabName = "evse_serve_pass",
                                           width = NULL,
                                           solidHeader = TRUE,
                                           withSpinner(
-                                              leafglOutput("wa_evse_serve_pass_mapout", height = 700),
+                                              leafletOutput("wa_evse_serve_pass_mapout", height = 700),
                                               type = 8,
                                               color = "#0dc5c1"
                                           )
@@ -141,7 +141,7 @@ stranded_tab <- bs4TabItem(tabName = "stranded",
                                    width = NULL,
                                    solidHeader = TRUE,
                                    withSpinner(
-                                       leafglOutput("wa_ooc_mapout", height = 700),
+                                       leafletOutput("wa_ooc_mapout", height = 700),
                                        type = 8,
                                        color = "#0dc5c1"
                                    )

@@ -32,14 +32,14 @@ usePackage("DT")
 usePackage("auth0")
 usePackage("bs4Dash")
 usePackage("leaflet.extras")
-usePackage("leafgl")
+# usePackage("leafgl")
 usePackage("sf")
 usePackage("shinyBS")
 usePackage("DBI")
 usePackage("RPostgres")
 usePackage("rpostgis")
 usePackage("vroom")
-usePackage("fontawesome")
+# usePackage("fontawesome")
 usePackage("data.table")
 usePackage("dbplyr")
 usePackage("pool")
@@ -60,7 +60,8 @@ pool <- pool::dbPool(
     dbname = Sys.getenv("MAIN_DB"),
     host = Sys.getenv("MAIN_HOST"),
     user = Sys.getenv("MAIN_USER"),
-    password = Sys.getenv("MAIN_PWD")
+    password = Sys.getenv("MAIN_PWD"), 
+    port = Sys.getenv("MAIN_PORT")
 )
 onStop(function() {
     poolClose(pool)
@@ -112,7 +113,7 @@ wa_map <- leaflet(options = leafletOptions(preferCanvas = TRUE)) %>%
                          noWrap = FALSE,
                          accessToken = Sys.getenv('MAPBOX_ACCESS_TOKEN')
                      ))  %>%
-    addGlPolylines(data = wa_roads, opacity = 1) %>%
+    addPolylines(data = wa_roads, opacity = 1, weight = 2) %>%
     addResetMapButton() %>%
     addSearchOSM()
 
