@@ -203,21 +203,8 @@ ui <- bs4DashPage(
         sidebarIcon = "bars",
         controlbarIcon = "th",
         fixed = FALSE,
-        "WSDOT EVI-ABM Results Viewer",
+        "Results Viewer",
         tags$div(style = "display: inline-block;vertical-align:top; width: 50px;", HTML("<br>")),
-        # tags$div(
-        #     style = "display: inline-block;vertical-align:top;",
-        #     selectInput(
-        #         inputId = "select_date",
-        #         label = "Select simulated date",
-        #         choices = sim_df$sim_dates,
-        #         selected = NULL,
-        #         multiple = FALSE,
-        #         selectize = TRUE,
-        #         width = NULL,
-        #         size = NULL
-        #     )
-        # ),
         tags$div(style = "display: inline-block;vertical-align:top; width: 20px;", HTML("<br>")),
         tags$div(
             style = "display: inline-block;vertical-align:top; ",
@@ -241,7 +228,7 @@ ui <- bs4DashPage(
         elevation = 3,
         opacity = 0.3,
         width = 4,
-        
+        imageOutput("logo2", width = 200, height = 66),
         bs4SidebarMenu(
             id = "sidebar",
             bs4SidebarMenuItem(
@@ -286,7 +273,7 @@ ui <- bs4DashPage(
         ),
         right_text = "2019"
         )),
-    title = "WSDOT EVI-ABM Results Viewer",
+    title = "Results Viewer",
     body = bs4DashBody(
         tags$head(tags$style(
             HTML(
@@ -1076,7 +1063,7 @@ ORDER  BY rn;"))
             output$stranded_count <- renderbs4InfoBox({
                 bs4InfoBox(
                     value = nrow(rvData$stranded_df),
-                    title = "EVs out of charge during trip",
+                    title = "EVs stranded",
                     icon = "car-crash"
                 )
             })
@@ -1202,110 +1189,7 @@ ORDER  BY rn;"))
             rvData$all_chargers_chademo <-
                 rvData$evse_dcfc[rvData$evse_dcfc$connector_code == 1 |
                                      rvData$evse_dcfc$connector_code == 3,]
-            # TODO: Fix the VCDM to ensure no repeatition of EVs and then
-            # un-comment below
-            # Merge to get the connector code etc. info with the OOC cars
-            # rvData$out_of_charge_df <-
-            #     merge(
-            #         rvData$out_of_charge_df,
-            #         rvData$trip_scenario_day_df[, c(
-            #             "ConnectorCode",
-            #             "County",
-            #             "Make",
-            #             "Model",
-            #             "Model.Year",
-            #             "Electric.Range",
-            #             "City",
-            #             "ZIP.Code",
-            #             "ulid"
-            #         )],
-            #         by.x = "veh_ID",
-            #         by.y = "ulid"
-            #     )
-            
-            
-            # rvData$ev_pass_evse_combo <-
-            #     merge(
-            #         all_chargers_combo[, c("ID", "Latitude", "Longitude")],
-            #         count_passed_evse,
-            #         by.x = "ID",
-            #         by.y = "evse_id",
-            #         all.x = TRUE
-            #     )
-            # rvData$ev_pass_evse_chademo <-
-            #     merge(
-            #         all_chargers_chademo[, c("ID", "Latitude", "Longitude")],
-            #         count_passed_evse,
-            #         by.x = "ID",
-            #         by.y = "evse_id",
-            #         all.x = TRUE
-            #     )
-            # rvData$ev_pass_evse_combo <-
-            #     tidyr::replace_na(rvData$ev_pass_evse_combo, list(evs_count = 0))
-            # rvData$ev_pass_evse_chademo <-
-            #     tidyr::replace_na(rvData$ev_pass_evse_chademo, list(evs_count = 0))
-            #
-            # count_passed_evse <-
-            #     rvData$evs_passed_df %>% dplyr::group_by(evse_id) %>% dplyr::summarise(evs_count = n())
-            # print(nrow(count_passed_evse))
-            # 
-            # rvData$evse_evs_passed <-
-            #     merge(
-            #         rvData$evse_dcfc[, c("evse_id", "latitude", "longitude")],
-            #         count_passed_evse,
-            #         by.x = "evse_id",
-            #         by.y = "evse_id",
-            #         all.x = TRUE
-            #     )
-            # rvData$evse_evs_passed <-
-            #     tidyr::replace_na(rvData$evse_evs_passed, list(evs_count = 0))
-            # 
-            # if (if.is.empty(rvData$charging_session_df_db)) {
-            #     count_served_evse <-
-            #         rvData$charging_session_df_db %>% dplyr::group_by(evse_id) %>% dplyr::summarise(evs_count = n()) %>% collect()
-            # }
-            # rvData$evse_evs_served <-
-            #     merge(
-            #         rvData$evse_dcfc[, c("evse_id", "latitude", "longitude")],
-            #         count_served_evse,
-            #         by.x = "evse_id",
-            #         by.y = "evse_id",
-            #         all.x = TRUE
-            #     )
-            # rvData$evse_evs_served <-
-            #     tidyr::replace_na(rvData$evse_evs_served, list(evs_count = 0))
-            # 
-            # leafletProxy(mapId = "wa_evse_serve_pass_mapout") %>%
-            #     addCircleMarkers(
-            #         lng = rvData$evse_evs_served$longitude,
-            #         lat = rvData$evse_evs_served$latitude,
-            #         stroke = FALSE,
-            #         fillOpacity = 0.5,
-            #         color = "#3377ff",
-            #         group = "served",
-            #         radius = rvData$evse_evs_served$evs_count,
-            #         label = as.character(rvData$evse_evs_served$evs_count),
-            #         popup = as.character(rvData$evse_evs_served$evs_count),
-            #         options = pathOptions(pane = "overlay")
-            #     ) %>%
-            #     addCircleMarkers(
-            #         lng = rvData$evse_evs_passed$longitude,
-            #         lat = rvData$evse_evs_passed$latitude,
-            #         stroke = FALSE,
-            #         fillOpacity = 0.5,
-            #         color = "#ff5b33",
-            #         group = "passed",
-            #         radius = rvData$evse_evs_passed$evs_count,
-            #         label = as.character(rvData$evse_evs_passed$evs_count),
-            #         popup = as.character(rvData$evse_evs_passed$evs_count),
-            #         options = pathOptions(pane = "overlay")
-            #     ) %>%
-            #     addLayersControl(
-            #         baseGroups = c("served", "passed"),
-            #         options = layersControlOptions(collapsed = FALSE)
-            #     )
-            # 
-            
+
             
         }
         
@@ -1314,6 +1198,14 @@ ORDER  BY rn;"))
     if.is.empty <- function(x) {
         is.null(need(x, message = FALSE))
     }
+    
+    output$logo2 <- renderImage({
+      return(list(src = "data-raw/logo2.png",
+                  width = 200, 
+                  height = 66,
+                  contentType = "image/png",
+                  alt = "logo"))
+    })
     
 }
 
