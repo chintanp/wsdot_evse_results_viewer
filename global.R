@@ -113,7 +113,7 @@ wa_map <- leaflet(options = leafletOptions(preferCanvas = TRUE)) %>%
                          noWrap = FALSE,
                          accessToken = Sys.getenv('MAPBOX_ACCESS_TOKEN')
                      ))  %>%
-    addPolylines(data = wa_roads, opacity = 1, weight = 2) %>%
+    # addPolylines(data = wa_roads, opacity = 1, weight = 2) %>%
     addResetMapButton() %>%
     addSearchOSM()
 
