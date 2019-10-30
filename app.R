@@ -805,6 +805,7 @@ ORDER  BY rn;"
             by = "evse_id",
             all.x = TRUE
           )
+        overlay_text <- "Passed: "
         overlay_color <- "#b50d2c"
         overlay_combo <- na.omit(evs_passed_df_tw_combo)
         overlay_chademo <- na.omit(evs_passed_df_tw_chademo)
@@ -832,6 +833,7 @@ ORDER  BY rn;"
             by = "evse_id",
             all.x = TRUE
           )
+        overlay_text <- "Served: " 
         overlay_color <- "#75d654"
         overlay_combo <- na.omit(evs_served_df_tw_combo)
         overlay_chademo <- na.omit(evs_served_df_tw_chademo)
@@ -910,6 +912,7 @@ ORDER  BY rn;"
           radius = log(100 * overlay_combo$count),
           group = base_layers[1],
           color = overlay_color,
+          popup = paste0(overlay_text, overlay_combo$count),
           labelOptions = leaflet::labelOptions(
             noHide = TRUE,
             direction = "bottom",
@@ -923,6 +926,7 @@ ORDER  BY rn;"
           radius = log(100 * overlay_chademo$count),
           group = base_layers[2],
           color = overlay_color,
+          popup = paste0(overlay_text, overlay_chademo$count),
           labelOptions = leaflet::labelOptions(
             noHide = TRUE,
             direction = "bottom",
@@ -1002,11 +1006,28 @@ ORDER  BY rn;"
         rvData$all_chargers_chademo$dcfc_count[rvData$all_chargers_chademo$evse_id == id]
       combo_count <-
         rvData$all_chargers_combo$dcfc_count[rvData$all_chargers_combo$evse_id == id]
-      
+      relevant_charging_sessions <- rvData$charging_session_df[which(rvData$charging_session_df$evse_id == id), ]
+      relevant_charging_sessions_tw <- relevant_charging_sessions %>% dplyr::mutate(datetime = as.POSIXct(
+        charge_start_time,
+        origin = as.POSIXct("1970-01-01", tz = "Etc/GMT+8"),
+        tz = "Etc/GMT+8"
+      )) %>%
+        dplyr::filter(datetime >= range_start_time &
+                        datetime <= range_end_time)
       evs_charged <-
-        length(which(rvData$charging_session_df$evse_id == id))
+        nrow(relevant_charging_sessions_tw)
+      
+      relevant_evs_passed <- rvData$evs_passed_df[which(rvData$evs_passed_df$evse_id == id), ]
+      relevant_evs_passed_tw <- relevant_evs_passed %>% dplyr::mutate(datetime = as.POSIXct(
+        simulation_ts,
+        origin = as.POSIXct("1970-01-01", tz = "Etc/GMT+8"),
+        tz = "Etc/GMT+8"
+      )) %>%
+        dplyr::filter(datetime >= range_start_time &
+                        datetime <= range_end_time)
+      
       evs_passed <-
-        length(which(rvData$evs_passed_df$evse_id == id))
+        nrow(relevant_evs_passed_tw)
       
       if (nrow(power_draw_evse) >= 1) {
         showModal(
