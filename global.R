@@ -96,14 +96,24 @@ bevse_dcfc <-
 
 base_layers <- c("Combo", "CHAdeMO")
 
-combo_icons <-
+evse_icon_blue <-
     icons(
-        iconUrl = "https://upload.wikimedia.org/wikipedia/commons/7/7d/Symbol_electric_vehicle_charging_stations.jpg",
+        iconUrl = "data-raw/evse_icon_blue.jpg",
         iconWidth = 10,
         iconHeight = 10,
         iconAnchorX = 0,
         iconAnchorY = 0
     )
+
+evse_icon_green <-
+    icons(
+        iconUrl = "data-raw/evse_icon_grren.jpg",
+        iconWidth = 10,
+        iconHeight = 10,
+        iconAnchorX = 0,
+        iconAnchorY = 0
+    )
+
 car_icons <- awesomeIcons(icon = "car", library = "fa")
 wa_map <- leaflet(options = leafletOptions(preferCanvas = TRUE)) %>%
     setMaxBounds(-124.8361, 45.5437, -116.9174, 49.0024) %>%

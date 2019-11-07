@@ -91,7 +91,9 @@ evse_util_tab <- bs4TabItem(tabName = "evse_util",
                                   value = c(0, 24)
                                 )
                               )
-                            )))
+                            )),
+                            fluidRow(column(12,
+                                            dataTableOutput("evse_table"))))
 
 evse_serve_wait_tab <- bs4TabItem(tabName = "evse_serve_wait",
                                   fluidRow(column(
@@ -378,7 +380,7 @@ server <- function(input, output, session) {
         relevant_df[(
           relevant_df$origin_zip == orig_ui_element &
             relevant_df$destination_zip == dest_ui_element
-        ),]
+        ), ]
       if (nrow(relevant_rows) >= 1) {
         veh_ids <-
           relevant_rows$veh_id # paste0("X", trimws(finished_row$veh_ID))
@@ -500,7 +502,7 @@ ORDER  BY rn;"
               as.numeric(ev_info_db_df$lng_val[ev_info_db_df$veh_id == i])
             
           }
-           
+          
           # socs_df <- rvData$soc_df_db %>% dplyr::filter(veh_id == veh_id) %>% dplyr::arrange(soc_id) %>% dplyr::select(soc_val) %>% collect()
           socs <-
             paste("SOC:", round(as.numeric(ev_info_db_df$soc_val[ev_info_db_df$veh_id == i]),
@@ -524,25 +526,29 @@ ORDER  BY rn;"
               lng = lngs,
               radius = 4,
               color = sample(color, 1),
-              popup = paste(sep = "<br>",
-                            paste("Veh ID: ", i),
-                            socs,
-                            tocharges,
-                            probs,
-                            states),
-              label = paste(sep = "\n",
-                            paste("Veh ID: ", i),
-                            socs,
-                            tocharges,
-                            probs,
-                            states),
+              popup = paste(
+                sep = "<br>",
+                paste("Veh ID: ", i),
+                socs,
+                tocharges,
+                probs,
+                states
+              ),
+              label = paste(
+                sep = "\n",
+                paste("Veh ID: ", i),
+                socs,
+                tocharges,
+                probs,
+                states
+              ),
               group = "travel_path",
               stroke = FALSE,
               fillOpacity = 0.5,
               options = pathOptions(pane = "travel_path")
             )
           
-          rel_cs_df <- cs_df[cs_df$veh_id == i,]
+          rel_cs_df <- cs_df[cs_df$veh_id == i, ]
           evse_rows <-
             match(rel_cs_df$evse_id, rvData$evse_dcfc$evse_id)
           cs_lats <-
@@ -724,14 +730,14 @@ ORDER  BY rn;"
         addMarkers(
           lng = ~ longitude ,
           lat = ~ latitude,
-          icon = combo_icons,
+          icon = evse_icon_blue,
           group = base_layers[1],
           data = rvData$all_chargers_combo
         )  %>%
         addMarkers(
           lng = ~ longitude ,
           lat = ~ latitude,
-          icon = combo_icons,
+          icon = evse_icon_blue,
           group = base_layers[2],
           data = rvData$all_chargers_chademo
         ) %>%
@@ -745,7 +751,7 @@ ORDER  BY rn;"
             noHide = TRUE,
             direction = "bottom",
             textOnly = TRUE,
-            offset = c(0,-10),
+            offset = c(0, -10),
             opacity = 1,
             style = list(
               "color" = "red",
@@ -777,14 +783,14 @@ ORDER  BY rn;"
         addMarkers(
           lng = ~ longitude ,
           lat = ~ latitude,
-          icon = combo_icons,
+          icon = evse_icon_blue,
           group = base_layers[1],
           data = rvData$all_chargers_combo
         )  %>%
         addMarkers(
           lng = ~ longitude ,
           lat = ~ latitude,
-          icon = combo_icons,
+          icon = evse_icon_blue,
           group = base_layers[2],
           data = rvData$all_chargers_chademo
         ) %>%
@@ -816,7 +822,7 @@ ORDER  BY rn;"
             noHide = TRUE,
             direction = "bottom",
             textOnly = TRUE,
-            offset = c(0,-10),
+            offset = c(0, -10),
             opacity = 1,
             style = list(
               "color" = "red",
@@ -852,7 +858,7 @@ ORDER  BY rn;"
           lng = ~ longitude ,
           lat = ~ latitude,
           layerId = ~ paste0("co", evse_id),
-          icon = combo_icons,
+          icon = evse_icon_blue,
           group = base_layers[1],
           data = rvData$all_chargers_combo,
           options = pathOptions(pane = "chargers")
@@ -861,7 +867,7 @@ ORDER  BY rn;"
           lng = ~ longitude ,
           lat = ~ latitude,
           layerId = ~ paste0("ch", evse_id),
-          icon = combo_icons,
+          icon = evse_icon_blue,
           group = base_layers[2],
           data = rvData$all_chargers_chademo,
           options = pathOptions(pane = "chargers")
@@ -876,7 +882,7 @@ ORDER  BY rn;"
             noHide = TRUE,
             direction = "bottom",
             textOnly = TRUE,
-            offset = c(0,-10),
+            offset = c(0, -10),
             opacity = 1,
             style = list(
               "color" = "red",
@@ -984,7 +990,7 @@ ORDER  BY rn;"
           addMarkers(
             lng = rvData$all_chargers_combo$longitude ,
             lat = rvData$all_chargers_combo$latitude,
-            icon = combo_icons,
+            icon = evse_icon_blue,
             group = base_layers[1],
             data = rvData$all_chargers_combo,
             options = pathOptions(pane = "chargers")
@@ -992,7 +998,7 @@ ORDER  BY rn;"
           addMarkers(
             lng = rvData$all_chargers_chademo$longitude ,
             lat = rvData$all_chargers_chademo$latitude,
-            icon = combo_icons,
+            icon = evse_icon_blue,
             group = base_layers[2],
             data = rvData$all_chargers_chademo,
             options = pathOptions(pane = "chargers")
@@ -1007,7 +1013,7 @@ ORDER  BY rn;"
               noHide = TRUE,
               direction = "bottom",
               textOnly = TRUE,
-              offset = c(0,-10),
+              offset = c(0, -10),
               opacity = 1,
               style = list(
                 "color" = "red",
@@ -1028,7 +1034,7 @@ ORDER  BY rn;"
               noHide = TRUE,
               direction = "bottom",
               textOnly = TRUE,
-              offset = c(0,-10),
+              offset = c(0, -10),
               opacity = 1
             )
           ) %>%  addLabelOnlyMarkers(
@@ -1040,7 +1046,7 @@ ORDER  BY rn;"
               noHide = TRUE,
               direction = "bottom",
               textOnly = TRUE,
-              offset = c(0,-10),
+              offset = c(0, -10),
               opacity = 1
             )
           ) %>%
@@ -1055,7 +1061,7 @@ ORDER  BY rn;"
               noHide = TRUE,
               direction = "bottom",
               textOnly = TRUE,
-              offset = c(0,-10),
+              offset = c(0, -10),
               opacity = 1
             )
           ) %>%  addCircleMarkers(
@@ -1069,7 +1075,7 @@ ORDER  BY rn;"
               noHide = TRUE,
               direction = "bottom",
               textOnly = TRUE,
-              offset = c(0,-10),
+              offset = c(0, -10),
               opacity = 1
             )
           ) %>%
@@ -1125,7 +1131,7 @@ ORDER  BY rn;"
         format = "%Y-%m-%d %H:%M:%S")
       
       power_draw_evse <-
-        rvData$power_draw_df %>% dplyr::filter(evse_id == id) %>% dplyr::arrange(pd_id) %>% collect() %>% dplyr::mutate(datetime = as.POSIXct(
+        rvData$power_draw_df %>% dplyr::filter(evse_id == paste0(id, ".0")) %>% dplyr::arrange(pd_id) %>% collect() %>% dplyr::mutate(datetime = as.POSIXct(
           simulation_ts,
           origin = as.POSIXct("1970-01-01", tz = "Etc/GMT+8"),
           tz = "Etc/GMT+8"
@@ -1144,7 +1150,7 @@ ORDER  BY rn;"
       combo_count <-
         rvData$all_chargers_combo$dcfc_count[rvData$all_chargers_combo$evse_id == id]
       relevant_charging_sessions <-
-        rvData$charging_session_df[which(rvData$charging_session_df$evse_id == id),]
+        rvData$charging_session_df[which(rvData$charging_session_df$evse_id == paste0(id, ".0")), ]
       relevant_charging_sessions_tw <-
         relevant_charging_sessions %>% dplyr::mutate(datetime = as.POSIXct(
           charge_start_time,
@@ -1157,7 +1163,7 @@ ORDER  BY rn;"
         nrow(relevant_charging_sessions_tw)
       
       relevant_evs_waiting <-
-        rvData$evs_waiting_df[which(rvData$evs_waiting_df$evse_id == id),]
+        rvData$evs_waiting_df[which(rvData$evs_waiting_df$evse_id == paste0(id, ".0")), ]
       relevant_evs_waiting_tw <-
         relevant_evs_waiting %>% dplyr::mutate(datetime = as.POSIXct(
           wait_start_time,
@@ -1411,7 +1417,7 @@ ORDER  BY rn;"
       
       nevse_query <-
         paste0(
-          "SELECT concat('n', nevse_id) as evse_id, latitude, longitude, dcfc_plug_count, connector_code from new_evses where dcfc_plug_count > 0 and analysis_id = ",
+          "SELECT concat('n', nevse_id) as evse_id, latitude, longitude, dcfc_plug_count as dcfc_count, connector_code from new_evses where dcfc_plug_count > 0 and analysis_id = ",
           a_id
         )
       # nevse_dcfc <- DBI::dbGetQuery(main_con, nevse_query)
@@ -1427,7 +1433,7 @@ ORDER  BY rn;"
             noHide = TRUE,
             direction = "bottom",
             textOnly = TRUE,
-            offset = c(0,-10),
+            offset = c(0, -10),
             opacity = 1
           )
         )
@@ -1442,7 +1448,7 @@ ORDER  BY rn;"
             noHide = TRUE,
             direction = "bottom",
             textOnly = TRUE,
-            offset = c(0,-10),
+            offset = c(0, -10),
             opacity = 1
           )
         )
@@ -1457,7 +1463,7 @@ ORDER  BY rn;"
             noHide = TRUE,
             direction = "bottom",
             textOnly = TRUE,
-            offset = c(0,-10),
+            offset = c(0, -10),
             opacity = 1
           )
         )
@@ -1472,21 +1478,22 @@ ORDER  BY rn;"
             noHide = TRUE,
             direction = "bottom",
             textOnly = TRUE,
-            offset = c(0,-10),
+            offset = c(0, -10),
             opacity = 1
           )
         )
       
-      rvData$evse_dcfc <- rbind(bevse_dcfc, nevse_dcfc)
+      rvData$evse_dcfc <-
+        rbind(bevse_dcfc, nevse_dcfc) %>% dplyr::filter(connector_code < 4)
       
       rvData$all_chargers_combo <-
         as.data.frame(rvData$evse_dcfc[rvData$evse_dcfc$connector_code == 2 |
-                                         rvData$evse_dcfc$connector_code == 3, ])
+                                         rvData$evse_dcfc$connector_code == 3,])
       
       rvData$all_chargers_chademo <-
         as.data.frame(rvData$evse_dcfc[rvData$evse_dcfc$connector_code == 1 |
-                                         rvData$evse_dcfc$connector_code == 3, ])
-
+                                         rvData$evse_dcfc$connector_code == 3,])
+      
     }
     
   })
@@ -1504,6 +1511,45 @@ ORDER  BY rn;"
       alt = "logo"
     )
   }, deleteFile = FALSE)
+  
+  output$evse_table <- renderDataTable({
+    DT::datatable(rvData$evse_dcfc,
+                  selection = "single",
+                  options = list(stateSave = TRUE))
+  })
+  
+  # to keep track of previously selected row
+  prev_row <- reactiveVal()
+  
+  observeEvent(input$evse_table_rows_selected, {
+    row_selected = rvData$evse_dcfc[input$evse_table_rows_selected, ]
+    if (row_selected$connector_code == 1 |
+        row_selected$connector_code == 3) {
+      layer_id <- paste0("ch", row_selected$evse_id)
+    } else if (row_selected$connector_code == 2 |
+               row_selected$connector_code == 3) {
+      layer_id <- paste0("co", row_selected$evse_id)
+    }
+    proxy <- leafletProxy('wa_evse_util_mapout')
+    print(row_selected)
+    proxy %>%
+      addMarkers(
+        popup = as.character(row_selected$evse_id),
+        layerId = layer_id,
+        group = as.character(row_selected$evse_id),
+        lng = row_selected$longitude,
+        lat = row_selected$latitude
+      )
+    
+    # Reset previously selected marker
+    if (!is.null(prev_row()))
+    {
+      proxy %>%
+        clearGroup(group = as.character(prev_row()$evse_id))
+    }
+    # set new value to reactiveVal
+    prev_row(row_selected)
+  })
   
 }
 
