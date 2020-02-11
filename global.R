@@ -43,7 +43,9 @@ usePackage("vroom")
 usePackage("data.table")
 usePackage("dbplyr")
 usePackage("pool")
-
+usePackage("leaflet.minicharts")
+usePackage("leaflet.mapboxgl")
+# usePackage("shinyanimate")
 # Connection to the databse
 # main_con <-
 #     DBI::dbConnect(
@@ -63,9 +65,9 @@ pool <- pool::dbPool(
     password = Sys.getenv("MAIN_PWD"), 
     port = Sys.getenv("MAIN_PORT")
 )
-onStop(function() {
-    poolClose(pool)
-})
+# onStop(function() {
+#     poolClose(pool)
+# })
 
 userid <- NULL
 # WA roads data
@@ -107,22 +109,21 @@ evse_icon_blue <-
 
 evse_icon_green <-
     icons(
-        iconUrl = "data-raw/evse_icon_grren.jpg",
+        iconUrl = "data-raw/evse_icon_green.jpg",
         iconWidth = 10,
         iconHeight = 10,
         iconAnchorX = 0,
         iconAnchorY = 0
     )
+tile_layers <- c("light", "streets", "satellite-streets")
 
 car_icons <- awesomeIcons(icon = "car", library = "fa")
+square_icons <- awesomeIcons(icon = "fa-square", library = "fa")
 wa_map <- leaflet(options = leafletOptions(preferCanvas = TRUE)) %>%
     setMaxBounds(-124.8361, 45.5437, -116.9174, 49.0024) %>%
-    addProviderTiles("MapBox",
-                     options = providerTileOptions(
-                         id = "mapbox.light",
-                         noWrap = FALSE,
-                         accessToken = Sys.getenv('MAPBOX_ACCESS_TOKEN')
-                     ))  %>%
+    addMapboxGL(style = "mapbox://styles/mapbox/satellite-streets-v11", group = tile_layers[3]) %>%
+    addMapboxGL(style = "mapbox://styles/mapbox/streets-v11", group = tile_layers[2]) %>%
+    addMapboxGL(style = "mapbox://styles/mapbox/light-v10", group = tile_layers[1]) %>%
     # addPolylines(data = wa_roads, opacity = 1, weight = 2) %>%
     addResetMapButton() %>%
     addSearchOSM()
