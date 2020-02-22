@@ -129,6 +129,10 @@ wa_map <- leaflet(options = leafletOptions(preferCanvas = TRUE)) %>%
     addSearchOSM()
 
 simulated_date <- "2019-07-01"
+options(shiny.host = as.character(system("wget -qO- http://instance-data/latest/meta-data/local-ipv4", intern = TRUE)))
+options(shiny.port = 7890)
+options(mapbox.accessToken = "pk.eyJ1IjoiY2hpbnRhbnAiLCJhIjoiY2ppYXU1anVuMThqazNwcDB2cGtneDdkYyJ9.TL6RTyRRFCbvJWyFa4P0Ow")
+
 # finished_files <-
 #     list.files(path = here::here("finished"), pattern = "*.csv")
 # 
