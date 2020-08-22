@@ -1,0 +1,51 @@
+Package: resview
+Title: EVI DSS Results Viewer
+Version: 0.0.0.9000
+Authors@R: person('Chintan', 'Pathak', email = 'cp84@uw.edu', role = c('cre', 'aut'))
+Description: Code for the EVI-DSS results viewer.
+License: MIT + file LICENSE
+Imports: 
+    config,
+    golem,
+    shiny,
+    htmltools,
+    shinyWidgets,
+    leaflet,
+    dplyr,
+    httr,
+    curl,
+    rgdal,
+    sp,
+    Hmisc,
+    RColorBrewer,
+    shinythemes,
+    readr,
+    rgeos,
+    hash,
+    shinycssloaders,
+    ulid,
+    here,
+    stringi,
+    DT,
+    auth0,
+    bs4Dash,
+    leaflet.extras,
+    sf,
+    shinyBS,
+    DBI,
+    RPostgres,
+    rpostgis,
+    vroom,
+    data.table,
+    dbplyr,
+    pool,
+    leaflet.minicharts,
+    leaflet.mapboxgl,
+    magrittr,
+    plotly,
+    leafem
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 7.1.0
+Depends: 
+    R (>= 2.10)
