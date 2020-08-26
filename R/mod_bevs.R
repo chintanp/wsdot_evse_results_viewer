@@ -328,6 +328,7 @@ ORDER  BY rn;"
     req(globalinput$select_datetime)
     # print("Date time selected")
     globals$stash$a_id <- globals$stash$analyses$analysis_id[globals$stash$analyses$sim_date_time == globalinput$select_datetime]
+    req(globals$stash$a_id)
     # print(globals$stash$a_id)
     # req(globals$stash$a_id)
     bevs <- DBI::dbGetQuery(

@@ -10,7 +10,7 @@
 mod_evses_ui <- function(id) {
   ns <- NS(id)
   tagList(fluidRow(column(
-    12,
+    6,
     bs4Dash::bs4Card(
       title = "List of DCFCs",
       closable = FALSE,
@@ -18,8 +18,32 @@ mod_evses_ui <- function(id) {
       collapsible = TRUE,
       elevation = 4,
       width = NULL,
+      maximizable = TRUE,
       solidHeader = TRUE,
       DT::dataTableOutput(ns("evse_table"))
+    )
+  ), 
+  column(
+    6,
+    
+    bs4Dash::bs4TabCard(
+      id = "wait_charge_tabcard",
+      title = tags$p("",
+                     style = " font-size: 20px;
+                                                    font-weight: 600;
+                                                    margin: 0; "),
+      elevation = 4,
+      width = 12,
+      collapsible = TRUE,
+      maximizable = TRUE,
+      closable = FALSE,
+      type = "tabs",
+      status = "purple",
+      solidHeader = FALSE,
+      bs4Dash::bs4TabPanel(tabName = "Charging Sessions",
+                           DT::dataTableOutput(ns("cs_table"))),
+      bs4Dash::bs4TabPanel(tabName = "Waiting Sessions",
+                           DT::dataTableOutput(ns("ws_table")))
     )
   )),
   fluidRow(
@@ -144,7 +168,7 @@ mod_evses_server <-
       globals$stash$a_id <-
         globals$stash$analyses$analysis_id[globals$stash$analyses$sim_date_time == globalinput$select_datetime]
       # print(globals$stash$a_id)
-      
+      req(globals$stash$a_id)
       a_id <- globals$stash$a_id
       nevse_query <-
         paste0(
@@ -202,7 +226,7 @@ mod_evses_server <-
       cs_evse <-
         charging_session_df %>%
         dplyr::group_by(evse_id) %>%
-        dplyr::summarise("# served" = n()) %>%
+        dplyr::summarise("# served" = dplyr::n()) %>%
         dplyr::mutate(evse_id = gsub("\\..*", "", evse_id))
       
       evs_waiting_df <-
@@ -212,7 +236,7 @@ mod_evses_server <-
         dplyr::collect()
       waiting_evse <- evs_waiting_df %>%
         dplyr::group_by(evse_id) %>%
-        dplyr::summarise("# waited" = n()) %>%
+        dplyr::summarise("# waited" = dplyr::n()) %>%
         dplyr::mutate(evse_id = gsub("\\..*", "", evse_id))
       
       globals$stash$evs_waiting_df <- evs_waiting_df
@@ -317,7 +341,7 @@ mod_evses_server <-
             dplyr::filter(datetime >= range_start_time &
                             datetime <= range_end_time) %>%
             dplyr::group_by(evse_id) %>%
-            dplyr::summarise(count = n())
+            dplyr::summarise(count = dplyr::n())
           
           evs_waited_df_tw_combo <-
             merge(evs_waited_df_tw,
@@ -346,7 +370,7 @@ mod_evses_server <-
             dplyr::filter(datetime >= range_start_time &
                             datetime <= range_end_time) %>%
             dplyr::group_by(evse_id) %>%
-            dplyr::summarise(count = n())
+            dplyr::summarise(count = dplyr::n())
           
           
           # evs_served_waited_combo_tw <- na.omit(merge(evs_waited_df_tw_combo, evs_served_df_tw, all.x = TRUE))
@@ -695,7 +719,61 @@ mod_evses_server <-
       }
       
       # print("Inside evse_table_rows_selected")
+      output$cs_table <- DT::renderDataTable({
+        cs_df <-
+          globals$stash$charging_session_df %>% dplyr::filter(evse_id == paste0(row_selected$evse_id, ".0")) %>% dplyr::select(charge_start_time,
+                                                                                                                        charge_end_time,
+                                                                                                                        veh_id,
+                                                                                                                        starting_soc,
+                                                                                                                        ending_soc)
+        DT::datatable(
+          cs_df,
+          selection = "single",
+          filter = 'top',
+          options = list(
+            pageLength = 5,
+            paging = F,
+            autoWidth = TRUE,
+            scrollX = TRUE,
+            scrollY = "200px",
+            columnDefs = list(list(
+              className = 'dt-center', targets = "_all"
+            )),
+            initComplete = DT::JS(
+              "function(settings, json) {",
+              "$(this.api().table().header()).css({'background-color': '#6c757d', 'color': '#fff'});",
+              "}"
+            )
+          ),
+          class = 'nowrap display'
+        ) %>% DT::formatRound('starting_soc', 0) %>% DT::formatRound('ending_soc', 0)
+      })
       
+      output$ws_table <- DT::renderDataTable({
+        ws_df <-
+          globals$stash$evs_waiting_df %>% dplyr::filter(evse_id == paste0(row_selected$evse_id, ".0")) %>% dplyr::select(wait_start_time, wait_end_time, veh_id, soc_val)
+        DT::datatable(
+          ws_df,
+          selection = "single",
+          filter = 'top',
+          options = list(
+            pageLength = 5,
+            autoWidth = TRUE,
+            scrollX = TRUE,
+            scrollY = "200px",
+            paging = F,
+            columnDefs = list(list(
+              className = 'dt-center', targets = "_all"
+            )),
+            initComplete = DT::JS(
+              "function(settings, json) {",
+              "$(this.api().table().header()).css({'background-color': '#000', 'color': '#fff'});",
+              "}"
+            )
+          ),
+          class = 'nowrap display'
+        ) %>% DT::formatRound('soc_val', 0)
+      })
       
       
       proxy <- leaflet::leafletProxy('wa_evse_util_mapout')

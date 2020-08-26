@@ -84,9 +84,10 @@ mod_summary_stats_server <-
     observeEvent(globalinput$select_datetime, {
       req(globalinput$select_datetime)
       print("Date time selected")
+      print(globalinput$select_datetime)
       globals$stash$a_id <- globals$stash$analyses$analysis_id[globals$stash$analyses$sim_date_time == globalinput$select_datetime]
       print(globals$stash$a_id)
-      
+      req(globals$stash$a_id)
       output$vehicle_count <- bs4Dash::renderbs4InfoBox({
         bs4Dash::bs4InfoBox(
           value = DBI::dbGetQuery(

@@ -28,8 +28,10 @@ app_server <- function(input, output, session) {
       userid <- query[['userid']]
       
       GlobalData$stash$analyses <-
-        GlobalData$stash$pool %>% dplyr::tbl("analysis_record") %>% dplyr::filter(user_id == userid &
-                                                                   status == "solved") %>% dplyr::collect()
+        # GlobalData$stash$pool %>% dplyr::tbl("analysis_record") %>% dplyr::filter(user_id == userid &
+        #                                                           status == "solved") %>% dplyr::collect()
+        GlobalData$stash$pool %>% DBI::dbGetQuery(glue::glue("select analysis_id, timezone('{Sys.timezone()}', date_trunc('second', sim_date_time)) as sim_date_time from analysis_record where status = 'solved' and user_id = '{userid}'"))
+      # browser() 
       updateSelectInput(session,
                         inputId = "select_datetime",
                         choices = GlobalData$stash$analyses$sim_date_time)
