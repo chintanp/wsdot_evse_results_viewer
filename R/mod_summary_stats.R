@@ -13,6 +13,8 @@ mod_summary_stats_ui <- function(id) {
     h4("Simulation Summary"),
     fluidRow(
       bs4Dash::bs4InfoBoxOutput(ns("vehicle_count")),
+      bs4Dash::bs4InfoBoxOutput(ns("evse_count")),
+      bs4Dash::bs4InfoBoxOutput(ns("plug_count")),
       bs4Dash::bs4InfoBoxOutput(ns("finished_count")),
       bs4Dash::bs4InfoBoxOutput(ns("stranded_count")),
       bs4Dash::bs4InfoBoxOutput(ns("evmt_count")),
@@ -21,51 +23,32 @@ mod_summary_stats_ui <- function(id) {
       
     ),
     fluidRow(column(
-      6,
-      bs4Dash::bs4Card(
-        title = "Overall EVSE Utilization",
-        closable = FALSE,
-        status = "success",
-        collapsible = TRUE,
-        labelTooltip = "Overall EVSE Utilization",
+      12,
+      bs4Dash::bs4TabCard(
+        id = "plots_tabcard",
+        title = tags$p("Plots",
+                       style = " font-size: 20px;
+                                                    font-weight: 600;
+                                                    margin: 0; "),
         elevation = 4,
-        width = NULL,
-        solidHeader = TRUE,
-        maximizable = TRUE,
-        plotly::plotlyOutput(ns("stat_evse_util_plot"))
-      )
-      
-    ),
-    column(
-      6,
-      bs4Dash::bs4Card(
-        title = "Wait-time Distribution",
-        closable = FALSE,
-        status = "danger",
+        width = 12,
         collapsible = TRUE,
-        labelTooltip = "Wait-time Distribution",
-        elevation = 4,
-        width = NULL,
-        solidHeader = TRUE,
         maximizable = TRUE,
-        plotly::plotlyOutput(ns("stat_evse_wait_plot"))
-      )
-    )),
-    fluidRow(column(
-      6,
-      bs4Dash::bs4Card(
-        title = "Charge-time Distribution",
         closable = FALSE,
-        status = "success",
-        collapsible = TRUE,
-        labelTooltip = "Charge-time Distribution",
-        elevation = 4,
-        width = NULL,
-        solidHeader = TRUE,
-        maximizable = TRUE,
-        plotly::plotlyOutput(ns("stat_cs_plot"))
+        type = "tabs",
+        status = "purple",
+        solidHeader = FALSE,
+        bs4Dash::bs4TabPanel(tabName = "EVSE Utilization",
+                             plotly::plotlyOutput(ns(
+                               "stat_evse_util_plot"
+                             ))),
+        bs4Dash::bs4TabPanel(tabName = "Wait Time",
+                             plotly::plotlyOutput(ns(
+                               "stat_evse_wait_plot"
+                             ))),
+        bs4Dash::bs4TabPanel(tabName = "Charge Time",
+                             plotly::plotlyOutput(ns("stat_cs_plot")))
       )
-      
     ))
   )
 }
@@ -85,20 +68,70 @@ mod_summary_stats_server <-
       req(globalinput$select_datetime)
       print("Date time selected")
       print(globalinput$select_datetime)
-      globals$stash$a_id <- globals$stash$analyses$analysis_id[globals$stash$analyses$sim_date_time == globalinput$select_datetime]
+      globals$stash$a_id <-
+        globals$stash$analyses$analysis_id[globals$stash$analyses$sim_date_time == globalinput$select_datetime]
       print(globals$stash$a_id)
       req(globals$stash$a_id)
+      
+      nevse_query <-
+        paste0(
+          "SELECT concat('n', nevse_id) as evse_id, latitude, longitude, dcfc_plug_count as dcfc_count, connector_code from new_evses where dcfc_plug_count > 0 and analysis_id = ",
+          globals$stash$a_id
+        )
+      nevse_dcfc <-
+        DBI::dbGetQuery(globals$stash$pool, nevse_query)
+      
+      evse_dcfc <-
+        rbind(globals$stash$bevse_dcfc, nevse_dcfc)
+      
       output$vehicle_count <- bs4Dash::renderbs4InfoBox({
         bs4Dash::bs4InfoBox(
-          value = DBI::dbGetQuery(
-            globals$stash$pool,
-            paste0(
-              "select count(veh_id) from evtrip_scenarios where analysis_id = ",
-              globals$stash$a_id
-            )
-          )$count
+          value = paste0(
+            DBI::dbGetQuery(
+              globals$stash$pool,
+              paste0(
+                "select count(veh_id) from evtrip_scenarios where analysis_id = ",
+                globals$stash$a_id
+              )
+            )$count,
+            ' | ',
+            DBI::dbGetQuery(
+              globals$stash$pool,
+              paste0("select count(veh_id) from wa_bevs")
+            )$count
+          )
           ,
-          title = "EVs in Simulation",
+          title = "Simulated | Total EVs",
+          icon = "layer-group"
+        )
+      })
+      
+      output$evse_count <- bs4Dash::renderbs4InfoBox({
+        bs4Dash::bs4InfoBox(
+          value = paste0(
+            nrow(globals$stash$bevse_dcfc), ' | ', nrow(nevse_dcfc)
+          )
+          ,
+          title = "Built | New EVSEs",
+          icon = "layer-group"
+        )
+      })
+      
+      output$plug_count <- bs4Dash::renderbs4InfoBox({
+        
+        chademo_total <-
+          evse_dcfc %>% dplyr::filter(connector_code == 1 |
+                                                       connector_code == 3)
+        combo_total <-
+          evse_dcfc %>% dplyr::filter(connector_code == 2 |
+                                        connector_code == 3)
+        
+        bs4Dash::bs4InfoBox(
+          value = paste0(
+              as.character(sum(chademo_total$dcfc_count)), ' | ', 
+              as.character(sum(combo_total$dcfc_count))
+          ),
+          title = "CHAdeMO | COMBO Plug Count",
           icon = "layer-group"
         )
       })
@@ -171,6 +204,36 @@ mod_summary_stats_server <-
           title = "Number of EVs waiting",
           icon = "square-full"
         )
+      })
+      
+      output$built_stn_count <- renderText({
+        nrow(globals$stash$bevse_dcfc)
+      })
+      
+      output$new_stn_count <- renderText({
+        nrow(nevse_dcfc)
+      })
+      
+      output$built_new_chademo_plugcount <- renderText({
+        chademo_built <-
+          globals$stash$bevse_dcfc %>% dplyr::filter(connector_code == 1 |
+                                                       connector_code == 3)
+        chademo_new <-
+          nevse_dcfc %>% dplyr::filter(connector_code == 1 |
+                                         connector_code == 3)
+        
+        paste0(as.character(sum(chademo_built$dcfc_count)), " (", as.character(sum(chademo_new$dcfc_plug_count)), ")")
+      })
+      
+      output$built_new_combo_plugcount <- renderText({
+        combo_built <-
+          globals$stash$bevse_dcfc %>% dplyr::filter(connector_code == 2 |
+                                                       connector_code == 3)
+        combo_new <-
+          nevse_dcfc %>% dplyr::filter(connector_code == 2 |
+                                         connector_code == 3)
+        
+        paste0(as.character(sum(combo_built$dcfc_count)), " (", as.character(sum(combo_new$dcfc_plug_count)), ")")
       })
       
       output$stat_evse_util_plot <- plotly::renderPlotly({

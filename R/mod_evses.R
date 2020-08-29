@@ -9,43 +9,45 @@
 #' @importFrom shiny NS tagList
 mod_evses_ui <- function(id) {
   ns <- NS(id)
-  tagList(fluidRow(column(
-    6,
-    bs4Dash::bs4Card(
-      title = "List of DCFCs",
-      closable = FALSE,
-      status = "success",
-      collapsible = TRUE,
-      elevation = 4,
-      width = NULL,
-      maximizable = TRUE,
-      solidHeader = TRUE,
-      DT::dataTableOutput(ns("evse_table"))
-    )
-  ), 
-  column(
-    6,
-    
-    bs4Dash::bs4TabCard(
-      id = "wait_charge_tabcard",
-      title = tags$p("",
-                     style = " font-size: 20px;
+  tagList(fluidRow(
+    column(
+      6,
+      bs4Dash::bs4Card(
+        title = "List of DCFCs",
+        closable = FALSE,
+        status = "success",
+        collapsible = TRUE,
+        elevation = 4,
+        width = NULL,
+        maximizable = TRUE,
+        solidHeader = TRUE,
+        DT::dataTableOutput(ns("evse_table"))
+      )
+    ),
+    column(
+      6,
+      
+      bs4Dash::bs4TabCard(
+        id = "wait_charge_tabcard",
+        title = tags$p("",
+                       style = " font-size: 20px;
                                                     font-weight: 600;
                                                     margin: 0; "),
-      elevation = 4,
-      width = 12,
-      collapsible = TRUE,
-      maximizable = TRUE,
-      closable = FALSE,
-      type = "tabs",
-      status = "purple",
-      solidHeader = FALSE,
-      bs4Dash::bs4TabPanel(tabName = "Charging Sessions",
-                           DT::dataTableOutput(ns("cs_table"))),
-      bs4Dash::bs4TabPanel(tabName = "Waiting Sessions",
-                           DT::dataTableOutput(ns("ws_table")))
+        elevation = 4,
+        width = 12,
+        collapsible = TRUE,
+        maximizable = TRUE,
+        closable = FALSE,
+        type = "tabs",
+        status = "purple",
+        solidHeader = FALSE,
+        bs4Dash::bs4TabPanel(tabName = "Charging Sessions",
+                             DT::dataTableOutput(ns("cs_table"))),
+        bs4Dash::bs4TabPanel(tabName = "Waiting Sessions",
+                             DT::dataTableOutput(ns("ws_table")))
+      )
     )
-  )),
+  ),
   fluidRow(
     column(
       width = 9,
@@ -184,11 +186,11 @@ mod_evses_server <-
       
       all_chargers_combo <-
         as.data.frame(evse_dcfc[evse_dcfc$connector_code == 2 |
-                                  evse_dcfc$connector_code == 3,])
+                                  evse_dcfc$connector_code == 3, ])
       
       all_chargers_chademo <-
         as.data.frame(evse_dcfc[evse_dcfc$connector_code == 1 |
-                                  evse_dcfc$connector_code == 3,])
+                                  evse_dcfc$connector_code == 3, ])
       
       globals$stash$all_chargers_combo <- all_chargers_combo
       globals$stash$all_chargers_chademo <- all_chargers_chademo
@@ -424,7 +426,7 @@ mod_evses_server <-
                 noHide = TRUE,
                 direction = "bottom",
                 textOnly = TRUE,
-                offset = c(0, -10),
+                offset = c(0,-10),
                 opacity = 1,
                 style = list(
                   "color" = "red",
@@ -446,7 +448,7 @@ mod_evses_server <-
                 noHide = TRUE,
                 direction = "bottom",
                 textOnly = TRUE,
-                offset = c(0, -10),
+                offset = c(0,-10),
                 opacity = 1
               )
             ) %>%  leaflet::addLabelOnlyMarkers(
@@ -459,7 +461,7 @@ mod_evses_server <-
                 noHide = TRUE,
                 direction = "bottom",
                 textOnly = TRUE,
-                offset = c(0, -10),
+                offset = c(0,-10),
                 opacity = 1
               )
             ) %>%
@@ -476,7 +478,7 @@ mod_evses_server <-
                 noHide = TRUE,
                 direction = "bottom",
                 textOnly = TRUE,
-                offset = c(0, -10),
+                offset = c(0,-10),
                 opacity = 1
               )
             ) %>%
@@ -493,7 +495,7 @@ mod_evses_server <-
                 noHide = TRUE,
                 direction = "bottom",
                 textOnly = TRUE,
-                offset = c(0, -10),
+                offset = c(0,-10),
                 opacity = 1
               )
             ) %>%
@@ -709,7 +711,7 @@ mod_evses_server <-
     observeEvent(input$evse_table_rows_selected, {
       evse_dcfc <-
         globals$stash$evse_dcfc_data %>% dplyr::filter(connector_code < 4)
-      row_selected = evse_dcfc[input$evse_table_rows_selected,]
+      row_selected = evse_dcfc[input$evse_table_rows_selected, ]
       if (row_selected$connector_code == 1 |
           row_selected$connector_code == 3) {
         layer_id <- paste0("ch", row_selected$evse_id)
@@ -722,10 +724,10 @@ mod_evses_server <-
       output$cs_table <- DT::renderDataTable({
         cs_df <-
           globals$stash$charging_session_df %>% dplyr::filter(evse_id == paste0(row_selected$evse_id, ".0")) %>% dplyr::select(charge_start_time,
-                                                                                                                        charge_end_time,
-                                                                                                                        veh_id,
-                                                                                                                        starting_soc,
-                                                                                                                        ending_soc)
+                                                                                                                               charge_end_time,
+                                                                                                                               veh_id,
+                                                                                                                               starting_soc,
+                                                                                                                               ending_soc)
         DT::datatable(
           cs_df,
           selection = "single",
@@ -767,7 +769,7 @@ mod_evses_server <-
             )),
             initComplete = DT::JS(
               "function(settings, json) {",
-              "$(this.api().table().header()).css({'background-color': '#000', 'color': '#fff'});",
+              "$(this.api().table().header()).css({'background-color': '#6c757d', 'color': '#fff'});",
               "}"
             )
           ),
@@ -795,8 +797,6 @@ mod_evses_server <-
       }
       # set new value to reactiveVal
       prev_evse_row(row_selected)
-      
-      
     })
     
     
