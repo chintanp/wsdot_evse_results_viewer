@@ -6,7 +6,7 @@
 #' @importFrom shiny shinyApp
 #' @importFrom golem with_golem_options
 run_app <- function(
-  port = as.numeric(Sys.getenv("SHINY_APP_PORT")),
+  port = as.numeric(Sys.getenv("RESVIEW_PORT")),
   ...
 ) {
   with_golem_options(
