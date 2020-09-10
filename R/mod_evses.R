@@ -723,11 +723,14 @@ mod_evses_server <-
       # print("Inside evse_table_rows_selected")
       output$cs_table <- DT::renderDataTable({
         cs_df <-
-          globals$stash$charging_session_df %>% dplyr::filter(evse_id == paste0(row_selected$evse_id, ".0")) %>% dplyr::select(charge_start_time,
-                                                                                                                               charge_end_time,
-                                                                                                                               veh_id,
-                                                                                                                               starting_soc,
-                                                                                                                               ending_soc)
+          globals$stash$charging_session_df %>%
+          dplyr::filter(evse_id == paste0(row_selected$evse_id, ".0") |
+                          evse_id == row_selected$evse_id) %>%
+          dplyr::select(charge_start_time,
+                        charge_end_time,
+                        veh_id,
+                        starting_soc,
+                        ending_soc)
         DT::datatable(
           cs_df,
           selection = "single",
@@ -753,7 +756,11 @@ mod_evses_server <-
       
       output$ws_table <- DT::renderDataTable({
         ws_df <-
-          globals$stash$evs_waiting_df %>% dplyr::filter(evse_id == paste0(row_selected$evse_id, ".0")) %>% dplyr::select(wait_start_time, wait_end_time, veh_id, soc_val)
+          globals$stash$evs_waiting_df %>%
+          dplyr::filter(evse_id == paste0(row_selected$evse_id, ".0") |
+                          evse_id == row_selected$evse_id) %>%
+          dplyr::select(wait_start_time, wait_end_time, veh_id, soc_val)
+        
         DT::datatable(
           ws_df,
           selection = "single",
