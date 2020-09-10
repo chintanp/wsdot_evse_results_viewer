@@ -4,7 +4,7 @@
 \alias{run_app}
 \title{Run the Shiny Application}
 \usage{
-run_app(port = as.numeric(Sys.getenv("SHINY_APP_PORT")), ...)
+run_app(port = as.numeric(Sys.getenv("RESVIEW_PORT")), ...)
 }
 \arguments{
 \item{...}{A series of options to be used inside the app.}
