@@ -7,9 +7,9 @@
 #' @noRd
 app_server <- function(input, output, session) {
   # reactlog::reactlog_render()
-  output$logo2 <- renderImage({
+  output$logo3 <- renderImage({
     list(
-      src = here::here("data-raw", "logo2.png"),
+      src = here::here("data-raw", "logo3.png"),
       width = 200,
       height = 66,
       contentType = "image/png",
