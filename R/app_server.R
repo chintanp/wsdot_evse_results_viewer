@@ -9,7 +9,7 @@ app_server <- function(input, output, session) {
   # reactlog::reactlog_render()
   output$logo3 <- renderImage({
     list(
-      src = here::here("data-raw", "logo3.png"),
+      src = here::here("data-raw", "logo3c.png"),
       width = 200,
       height = 66,
       contentType = "image/png",
