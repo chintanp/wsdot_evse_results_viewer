@@ -7,6 +7,7 @@
 #' @importFrom golem with_golem_options
 run_app <- function(
   port = as.numeric(Sys.getenv("RESVIEW_PORT")),
+  launch.browser = TRUE,
   ...
 ) {
   with_golem_options(
