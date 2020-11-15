@@ -55,7 +55,7 @@ app_ui <- function(request) {
           elevation = 3,
           opacity = 0.3,
           width = 4,
-          title = tags$b("EVI-DSS Results Viewer"),
+          title = tags$b("Results Viewer"),
           imageOutput("logo3", width = 200, height = 66),
           bs4Dash::bs4SidebarMenu(
             id = "sidebar",

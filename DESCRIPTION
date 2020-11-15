@@ -2,7 +2,7 @@ Package: resview
 Title: EVI DSS Results Viewer
 Version: 0.0.0.9000
 Authors@R: person('Chintan', 'Pathak', email = 'cp84@uw.edu', role = c('cre', 'aut'))
-Description: Code for the EVI-DSS results viewer.
+Description: Code for the results viewer.
 License: MIT + file LICENSE
 Imports: 
     config,

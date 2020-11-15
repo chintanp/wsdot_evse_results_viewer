@@ -16,7 +16,7 @@
 golem::fill_desc(
   pkg_name = "resview", # The Name of the package containing the App 
   pkg_title = "EVI DSS Results Viewer", # The Title of the package containing the App 
-  pkg_description = "Code for the EVI-DSS results viewer.", # The Description of the package containing the App 
+  pkg_description = "Code for the results viewer.", # The Description of the package containing the App 
   author_first_name = "Chintan", # Your First Name
   author_last_name = "Pathak", # Your Last Name
   author_email = "cp84@uw.edu", # Your Email
