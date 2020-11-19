@@ -333,13 +333,35 @@ ORDER  BY rn;"
     # req(globals$stash$a_id)
     bevs <- DBI::dbGetQuery(
       globals$stash$pool,
-      paste0(
-        'select es.origin_zip, es.destination_zip, es.soc, es.trip_start_time, es.veh_id, wb.county, wb.city, wb.zip_code, wb.model_year, wb.make, wb.model, wb.electric_range,  wb.legislative_district, wb.capacity, wb.fuel_consumption, wb.connector_code
-        from evtrip_scenarios es
-        join wa_bevs wb on es.veh_id = wb.veh_id
-        where es.analysis_id = ',
-        globals$stash$a_id
-      )
+      glue::glue(
+        "select es.origin_zip,
+       es.destination_zip,
+       es.soc,
+       es.trip_start_time,
+       es.veh_id,
+       wb.county,
+       wb.city,
+       wb.zip_code,
+       wb.model_year,
+       wb.make,
+       wb.model,
+       wb.electric_range,
+       wb.legislative_district,
+       wb.capacity,
+       wb.fuel_consumption,
+       wb.connector_code,
+       CASE
+           WHEN ef.veh_id IS NOT NULL
+               THEN 'finished'
+           WHEN est.veh_id IS NOT NULL
+               THEN 'stranded'
+           ELSE 'not sure'
+           END as ending
+from evtrip_scenarios es
+         join wa_bevs wb on es.veh_id = wb.veh_id
+         left join (select veh_id, analysis_id from ev_finished where analysis_id = {globals$stash$a_id}) as ef on es.veh_id = ef.veh_id
+         left join (select veh_id, analysis_id from ev_stranded where analysis_id = {globals$stash$a_id}) as est on es.veh_id = est.veh_id
+where es.analysis_id = {globals$stash$a_id};")
     )
     
     a_id <- globals$stash$a_id

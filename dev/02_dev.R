@@ -50,6 +50,7 @@ usethis::use_package("leaflet.mapboxgl")
 usethis::use_package("magrittr")
 usethis::use_package("plotly")
 usethis::use_package("leafem")
+usethis::use_package("glue")
 
 
 ## Add modules ----

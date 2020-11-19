@@ -1,0 +1,12 @@
+name: resview
+title: resview
+username:
+account: stlab
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 3256127
+bundleId: 3875034
+url: https://stlab.shinyapps.io/resview/
+when: 1605684606.45578
+asMultiple: FALSE
+asStatic: FALSE

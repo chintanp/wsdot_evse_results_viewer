@@ -37,7 +37,9 @@ Imports:
     leaflet.mapboxgl,
     magrittr,
     plotly,
-    leafem
+    leafem,
+    pkgload,
+    glue
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.1.1

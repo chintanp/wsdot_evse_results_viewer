@@ -25,7 +25,10 @@ app_server <- function(input, output, session) {
   observe({
     query <- parseQueryString(session$clientData$url_search)
     if (!is.null(query[['userid']])) {
-      userid <- query[['userid']]
+      userid <- query[['userid']] 
+      } else {
+        userid <- '5df30c5cceb5030df24a5d0f'
+      }
       
       GlobalData$stash$analyses <-
         # GlobalData$stash$pool %>% dplyr::tbl("analysis_record") %>% dplyr::filter(user_id == userid &
@@ -36,7 +39,7 @@ app_server <- function(input, output, session) {
                         inputId = "select_datetime",
                         choices = GlobalData$stash$analyses$sim_date_time)
       
-    }
+    
   })
   
   # observeEvent(input$select_datetime, {
