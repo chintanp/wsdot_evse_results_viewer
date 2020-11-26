@@ -64,12 +64,12 @@ mod_summary_stats_server <-
            globalinput) {
     ns <- session$ns
     
-    observeEvent(globalinput$select_datetime, {
-      req(globalinput$select_datetime)
+    observeEvent(globalinput$select_analysis, {
+      req(globalinput$select_analysis)
       print("Date time selected")
-      print(globalinput$select_datetime)
+      print(globalinput$select_analysis)
       globals$stash$a_id <-
-        globals$stash$analyses$analysis_id[globals$stash$analyses$sim_date_time == globalinput$select_datetime]
+        as.numeric(strsplit(globalinput$select_analysis, ' - ')[[1]][2])
       print(globals$stash$a_id)
       req(globals$stash$a_id)
       

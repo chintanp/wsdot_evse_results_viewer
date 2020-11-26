@@ -165,10 +165,10 @@ mod_evses_server <-
     rvData <- reactiveValues(cs_df = data.frame(),
                              ws_df = data.frame())
     
-    observeEvent(globalinput$select_datetime, {
-      req(globalinput$select_datetime)
+    observeEvent(globalinput$select_analysis, {
+      req(globalinput$select_analysis)
       globals$stash$a_id <-
-        globals$stash$analyses$analysis_id[globals$stash$analyses$sim_date_time == globalinput$select_datetime]
+        as.numeric(strsplit(globalinput$select_analysis, ' - ')[[1]][2])
       # print(globals$stash$a_id)
       req(globals$stash$a_id)
       a_id <- globals$stash$a_id
