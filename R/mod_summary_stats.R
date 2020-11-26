@@ -60,16 +60,15 @@ mod_summary_stats_server <-
   function(input,
            output,
            session,
-           globals,
-           globalinput) {
+           globals) {
     ns <- session$ns
     
-    observeEvent(globalinput$select_datetime, {
-      req(globalinput$select_datetime)
-      print("Date time selected")
-      print(globalinput$select_datetime)
-      globals$stash$a_id <-
-        globals$stash$analyses$analysis_id[globals$stash$analyses$sim_date_time == globalinput$select_datetime]
+    observe({
+      # req(globalinput$select_datetime)
+      # print("Date time selected")
+      # print(globalinput$select_datetime)
+      # globals$stash$a_id <-
+      #   globals$stash$analyses$analysis_id[globals$stash$analyses$sim_date_time == globalinput$select_datetime]
       print(globals$stash$a_id)
       req(globals$stash$a_id)
       
@@ -108,9 +107,7 @@ mod_summary_stats_server <-
       
       output$evse_count <- bs4Dash::renderbs4InfoBox({
         bs4Dash::bs4InfoBox(
-          value = paste0(
-            nrow(globals$stash$bevse_dcfc), ' | ', nrow(nevse_dcfc)
-          )
+          value = paste0(nrow(globals$stash$bevse_dcfc), ' | ', nrow(nevse_dcfc))
           ,
           title = "Built | New EVSEs",
           icon = "layer-group"
@@ -118,19 +115,20 @@ mod_summary_stats_server <-
       })
       
       output$plug_count <- bs4Dash::renderbs4InfoBox({
-        
         chademo_total <-
           evse_dcfc %>% dplyr::filter(connector_code == 1 |
-                                                       connector_code == 3)
+                                        connector_code == 3)
         combo_total <-
           evse_dcfc %>% dplyr::filter(connector_code == 2 |
                                         connector_code == 3)
         
         bs4Dash::bs4InfoBox(
-          value = paste0(
-              as.character(sum(chademo_total$dcfc_count)), ' | ', 
-              as.character(sum(combo_total$dcfc_count))
-          ),
+          value = paste0(as.character(sum(
+            chademo_total$dcfc_count
+          )), ' | ',
+          as.character(sum(
+            combo_total$dcfc_count
+          ))),
           title = "CHAdeMO | COMBO Plug Count",
           icon = "layer-group"
         )

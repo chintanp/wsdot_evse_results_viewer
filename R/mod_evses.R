@@ -102,8 +102,7 @@ mod_evses_server <-
   function(input,
            output,
            session,
-           globals,
-           globalinput) {
+           globals) {
     ns <- session$ns
     
     tile_layers <- c("light", "streets", "satellite-streets")
@@ -165,10 +164,10 @@ mod_evses_server <-
     rvData <- reactiveValues(cs_df = data.frame(),
                              ws_df = data.frame())
     
-    observeEvent(globalinput$select_datetime, {
-      req(globalinput$select_datetime)
-      globals$stash$a_id <-
-        globals$stash$analyses$analysis_id[globals$stash$analyses$sim_date_time == globalinput$select_datetime]
+    observe({
+      # req(globalinput$select_datetime)
+      # globals$stash$a_id <-
+      #   globals$stash$analyses$analysis_id[globals$stash$analyses$sim_date_time == globalinput$select_datetime]
       # print(globals$stash$a_id)
       req(globals$stash$a_id)
       a_id <- globals$stash$a_id
@@ -186,11 +185,11 @@ mod_evses_server <-
       
       all_chargers_combo <-
         as.data.frame(evse_dcfc[evse_dcfc$connector_code == 2 |
-                                  evse_dcfc$connector_code == 3, ])
+                                  evse_dcfc$connector_code == 3,])
       
       all_chargers_chademo <-
         as.data.frame(evse_dcfc[evse_dcfc$connector_code == 1 |
-                                  evse_dcfc$connector_code == 3, ])
+                                  evse_dcfc$connector_code == 3,])
       
       globals$stash$all_chargers_combo <- all_chargers_combo
       globals$stash$all_chargers_chademo <- all_chargers_chademo
@@ -426,7 +425,7 @@ mod_evses_server <-
                 noHide = TRUE,
                 direction = "bottom",
                 textOnly = TRUE,
-                offset = c(0,-10),
+                offset = c(0, -10),
                 opacity = 1,
                 style = list(
                   "color" = "red",
@@ -448,7 +447,7 @@ mod_evses_server <-
                 noHide = TRUE,
                 direction = "bottom",
                 textOnly = TRUE,
-                offset = c(0,-10),
+                offset = c(0, -10),
                 opacity = 1
               )
             ) %>%  leaflet::addLabelOnlyMarkers(
@@ -461,7 +460,7 @@ mod_evses_server <-
                 noHide = TRUE,
                 direction = "bottom",
                 textOnly = TRUE,
-                offset = c(0,-10),
+                offset = c(0, -10),
                 opacity = 1
               )
             ) %>%
@@ -478,7 +477,7 @@ mod_evses_server <-
                 noHide = TRUE,
                 direction = "bottom",
                 textOnly = TRUE,
-                offset = c(0,-10),
+                offset = c(0, -10),
                 opacity = 1
               )
             ) %>%
@@ -495,7 +494,7 @@ mod_evses_server <-
                 noHide = TRUE,
                 direction = "bottom",
                 textOnly = TRUE,
-                offset = c(0,-10),
+                offset = c(0, -10),
                 opacity = 1
               )
             ) %>%
@@ -711,7 +710,7 @@ mod_evses_server <-
     observeEvent(input$evse_table_rows_selected, {
       evse_dcfc <-
         globals$stash$evse_dcfc_data %>% dplyr::filter(connector_code < 4)
-      row_selected = evse_dcfc[input$evse_table_rows_selected, ]
+      row_selected = evse_dcfc[input$evse_table_rows_selected,]
       if (row_selected$connector_code == 1 |
           row_selected$connector_code == 3) {
         layer_id <- paste0("ch", row_selected$evse_id)

@@ -64,8 +64,7 @@ mod_bevs_ui <- function(id) {
 mod_bevs_server <- function(input,
                             output,
                             session,
-                            globals,
-                            globalinput) {
+                            globals) {
   ns <- session$ns
   
   clearMapOverlay <- function(mapID) {
@@ -136,7 +135,7 @@ ORDER  BY rn;"
             )), ")", sep = '')
           )
         )
-
+      
       dest_color <- "#420db5"
       orig_color <- "#960db5"
       map_id <- "wa_ooc_mapout"
@@ -169,7 +168,7 @@ ORDER  BY rn;"
           label = paste0("Destination: ",
                          row_df$destination_zip),
           labelOptions = leaflet::labelOptions(noHide = T),
-          options =leaflet::pathOptions(pane = "od_points")
+          options = leaflet::pathOptions(pane = "od_points")
           
         )
       
@@ -233,7 +232,7 @@ ORDER  BY rn;"
             options = leaflet::pathOptions(pane = "travel_path")
           )
         
-        rel_cs_df <- cs_df[cs_df$veh_id == i,]
+        rel_cs_df <- cs_df[cs_df$veh_id == i, ]
         evse_rows <-
           match(gsub("\\..*", "", rel_cs_df$evse_id),
                 evse_dcfc$evse_id)
@@ -324,10 +323,10 @@ ORDER  BY rn;"
       iconAnchorY = 0
     )
   
-  observeEvent(globalinput$select_datetime, {
-    req(globalinput$select_datetime)
-    # print("Date time selected")
-    globals$stash$a_id <- globals$stash$analyses$analysis_id[globals$stash$analyses$sim_date_time == globalinput$select_datetime]
+  observe({
+    # req(globalinput$select_datetime)
+    # # print("Date time selected")
+    # globals$stash$a_id <- globals$stash$analyses$analysis_id[globals$stash$analyses$sim_date_time == globalinput$select_datetime]
     req(globals$stash$a_id)
     # print(globals$stash$a_id)
     # req(globals$stash$a_id)
@@ -361,7 +360,8 @@ from evtrip_scenarios es
          join wa_bevs wb on es.veh_id = wb.veh_id
          left join (select veh_id, analysis_id from ev_finished where analysis_id = {globals$stash$a_id}) as ef on es.veh_id = ef.veh_id
          left join (select veh_id, analysis_id from ev_stranded where analysis_id = {globals$stash$a_id}) as est on es.veh_id = est.veh_id
-where es.analysis_id = {globals$stash$a_id};")
+where es.analysis_id = {globals$stash$a_id};"
+      )
     )
     
     a_id <- globals$stash$a_id
@@ -417,14 +417,14 @@ where es.analysis_id = {globals$stash$a_id};")
       od_str <- NULL
       # if (!rapportools::is.empty(rvData$simulation_runtime)) {
       # req(globals$stash$a_id)
-
+      
       all_chargers_combo <-
         as.data.frame(evse_dcfc[evse_dcfc$connector_code == 2 |
-                                  evse_dcfc$connector_code == 3,])
+                                  evse_dcfc$connector_code == 3, ])
       
       all_chargers_chademo <-
         as.data.frame(evse_dcfc[evse_dcfc$connector_code == 1 |
-                                  evse_dcfc$connector_code == 3,])
+                                  evse_dcfc$connector_code == 3, ])
       
       stranded_df <-
         globals$stash$pool %>%
@@ -496,7 +496,7 @@ where es.analysis_id = {globals$stash$a_id};")
             noHide = TRUE,
             direction = "bottom",
             textOnly = TRUE,
-            offset = c(0,-10),
+            offset = c(0, -10),
             opacity = 1,
             style = list(
               "color" = "red",
@@ -527,7 +527,7 @@ where es.analysis_id = {globals$stash$a_id};")
     })
     
     observeEvent(input$ev_table_rows_selected, {
-      row_selected = bevs[input$ev_table_rows_selected, ]
+      row_selected = bevs[input$ev_table_rows_selected,]
       # Reset previously selected marker
       if (!is.null(prev_ev_row()))
       {

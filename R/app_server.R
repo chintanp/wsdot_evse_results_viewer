@@ -25,31 +25,43 @@ app_server <- function(input, output, session) {
   observe({
     query <- parseQueryString(session$clientData$url_search)
     if (!is.null(query[['userid']])) {
-      userid <- query[['userid']] 
-      } else {
-        userid <- '5df30c5cceb5030df24a5d0f'
-      }
-      
-      GlobalData$stash$analyses <-
-        # GlobalData$stash$pool %>% dplyr::tbl("analysis_record") %>% dplyr::filter(user_id == userid &
-        #                                                           status == "solved") %>% dplyr::collect()
-        GlobalData$stash$pool %>% DBI::dbGetQuery(glue::glue("select analysis_id, timezone('{Sys.timezone()}', date_trunc('second', sim_date_time)) as sim_date_time from analysis_record where status = 'solved' and user_id = '{userid}' order by sim_date_time desc"))
-      # browser() 
-      updateSelectInput(session,
-                        inputId = "select_datetime",
-                        choices = GlobalData$stash$analyses$sim_date_time)
-      
+      userid <- query[['userid']]
+    } else {
+      userid <- '5df30c5cceb5030df24a5d0f'
+    }
+    
+    GlobalData$stash$analyses <-
+      GlobalData$stash$pool %>% DBI::dbGetQuery(
+        glue::glue(
+          "select (cast(set_id as text) || ' - ' || cast(analysis_id as text) || ' - ' ||
+        cast(timezone('{Sys.timezone()}', date_trunc('second', sim_date_time)) as text)) as sas
+from analysis_record
+where status = 'solved'
+  and user_id = '{userid}'
+order by sim_date_time desc;"
+        )
+      )
+    # GlobalData$stash$pool %>% dplyr::tbl("analysis_record") %>% dplyr::filter(user_id == userid &
+    #                                                           status == "solved") %>% dplyr::collect()
+    # GlobalData$stash$pool %>% DBI::dbGetQuery(glue::glue("select analysis_id, timezone('{Sys.timezone()}', date_trunc('second', sim_date_time)) as sim_date_time from analysis_record where status = 'solved' and user_id = '{userid}' order by sim_date_time desc"))
+    
+    # browser()
+    updateSelectInput(session,
+                      inputId = "select_analysis",
+                      choices = GlobalData$stash$analyses$sas)
+    
     
   })
   
-  # observeEvent(input$select_datetime, {
-  #   req(input$select_datetime)
-  #   
-  #   # GlobalData$stash$a_id <- GlobalData$stash$analyses$analysis_id[GlobalData$stash$analyses$sim_date_time == input$select_datetime]
-  #   # print(GlobalData$stash$a_id)
-  # })
+  observeEvent(input$select_analysis, {
+    req(input$select_analysis)
+    print(input$select_analysis)
+    GlobalData$stash$a_id <-
+      as.numeric(strsplit(input$select_analysis, ' - ', fixed = TRUE)[[1]][2]) # GlobalData$stash$analyses$analysis_id[GlobalData$stash$analyses$sim_date_time == input$select_analysis]
+    print(GlobalData$stash$a_id)
+  })
   # List the first level callModules here
-  callModule(mod_bevs_server, "bevs_ui_1", GlobalData, input)
-  callModule(mod_evses_server, "evses_ui_1", GlobalData, input)
-  callModule(mod_summary_stats_server, "summary_stats_ui_1", GlobalData, input)
+  callModule(mod_bevs_server, "bevs_ui_1", GlobalData)
+  callModule(mod_evses_server, "evses_ui_1", GlobalData)
+  callModule(mod_summary_stats_server, "summary_stats_ui_1", GlobalData)
 }

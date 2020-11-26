@@ -36,7 +36,7 @@ app_ui <- function(request) {
             style = "display: inline-block;vertical-align:top; ",
             # withAnim(),
             selectizeInput(
-              inputId = "select_datetime",
+              inputId = "select_analysis",
               label = "Select simulation run datetime",
               choices = " " ,
               options = list(
