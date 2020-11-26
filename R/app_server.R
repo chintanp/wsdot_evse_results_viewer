@@ -35,17 +35,19 @@ app_server <- function(input, output, session) {
       #                                                           status == "solved") %>% dplyr::collect()
       GlobalData$stash$pool %>% DBI::dbGetQuery(
         glue::glue(
-          "select set_id, analysis_id, timezone('{Sys.timezone()}', date_trunc('second', sim_date_time)) as sim_date_time from analysis_record where status = 'solved' and user_id = '{userid}' order by sim_date_time desc"
+          "select (cast(set_id as text) || ' - ' || cast(analysis_id as text) || ' - ' ||
+        cast(timezone('{Sys.timezone()}', date_trunc('second', sim_date_time)) as text)) as sas
+from analysis_record
+where status = 'solved'
+  and user_id = '{userid}'
+order by sim_date_time desc;"
         )
       )
     # browser()
     updateSelectInput(
       session,
       inputId = "select_analysis",
-      choices = paste(as.character(GlobalData$stash$analyses$set_id),
-        as.character(GlobalData$stash$analyses$analysis_id),
-        GlobalData$stash$analyses$sim_date_time, sep = ' - '
-      )
+      choices = GlobalData$stash$analyses$sas
     )
     
     
