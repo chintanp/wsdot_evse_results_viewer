@@ -37,7 +37,7 @@ app_ui <- function(request) {
             # withAnim(),
             selectizeInput(
               inputId = "select_analysis",
-              label = "Select set - analysis_id - runtime",
+              label = "Select simulation run datetime",
               choices = " " ,
               options = list(
                 placeholder = 'Please select an option below',

@@ -324,18 +324,20 @@ ORDER  BY rn;"
       iconAnchorY = 0
     )
   
-  observeEvent(globalinput$select_analysis, {
-    req(globalinput$select_analysis)
-    # print("Date time selected")
-    globals$stash$a_id <-
-      as.numeric(strsplit(globalinput$select_analysis, ' - ')[[1]][2])
-    req(globals$stash$a_id)
-    # print(globals$stash$a_id)
-    # req(globals$stash$a_id)
-    bevs <- DBI::dbGetQuery(
-      globals$stash$pool,
-      glue::glue(
-        "select es.origin_zip,
+  observeEvent(globalinput$select_analysis,
+               {
+                 req(globalinput$select_analysis)
+                 # print("Date time selected")
+                 globals$stash$a_id <-
+                   globals$stash$analyses$analysis_id[globals$stash$analyses$sim_date_time == globalinput$select_analysis]
+                 # as.numeric(strsplit(globalinput$select_analysis, ' - ', fixed = TRUE)[[1]][2])
+                 req(globals$stash$a_id)
+                 # print(globals$stash$a_id)
+                 # req(globals$stash$a_id)
+                 bevs <- DBI::dbGetQuery(
+                   globals$stash$pool,
+                   glue::glue(
+                     "select es.origin_zip,
        es.destination_zip,
        es.soc,
        es.trip_start_time,
@@ -363,187 +365,189 @@ from evtrip_scenarios es
          left join (select veh_id, analysis_id from ev_finished where analysis_id = {globals$stash$a_id}) as ef on es.veh_id = ef.veh_id
          left join (select veh_id, analysis_id from ev_stranded where analysis_id = {globals$stash$a_id}) as est on es.veh_id = est.veh_id
 where es.analysis_id = {globals$stash$a_id};"
-      )
-    )
-    
-    a_id <- globals$stash$a_id
-    nevse_query <-
-      paste0(
-        "SELECT concat('n', nevse_id) as evse_id, latitude, longitude, dcfc_plug_count as dcfc_count, connector_code from new_evses where dcfc_plug_count > 0 and analysis_id = ",
-        a_id
-      )
-    nevse_dcfc <-
-      DBI::dbGetQuery(globals$stash$pool, nevse_query)
-    
-    evse_dcfc <-
-      rbind(globals$stash$bevse_dcfc, nevse_dcfc)
-    
-    output$ev_table <- DT::renderDataTable({
-      if (nrow(bevs) > 0) {
-        DT::datatable(
-          bevs,
-          selection = "single",
-          filter = 'top',
-          options = list(
-            pageLength = 10,
-            autoWidth = TRUE,
-            scrollX = TRUE,
-            scrollCollapse = TRUE,
-            columnDefs = list(list(
-              className = 'dt-center', targets = "_all"
-            )),
-            dom = 'Bfrtip',
-            buttons = c(('colvis')),
-            initComplete = DT::JS(
-              "function(settings, json) {",
-              "$(this.api().table().header()).css({'background-color': '#EBECEC', 'color': '#000'});",
-              "}"
-            )
-          ),
-          class = 'nowrap display',
-          extensions = c('Buttons', 'FixedColumns')
-        ) %>% DT::formatRound('capacity', 1) %>% DT::formatRound('fuel_consumption', 1)
-      }
-      else {
-        showModal(
-          modalDialog(
-            size = "s",
-            easyClose = TRUE,
-            "Select a simulation run time to see the EVs in a simulation."
-          )
-        )
-      }
-    })
-    
-    output$wa_ooc_mapout <- leaflet::renderLeaflet({
-      od_str <- NULL
-      # if (!rapportools::is.empty(rvData$simulation_runtime)) {
-      # req(globals$stash$a_id)
-      
-      all_chargers_combo <-
-        as.data.frame(evse_dcfc[evse_dcfc$connector_code == 2 |
-                                  evse_dcfc$connector_code == 3, ])
-      
-      all_chargers_chademo <-
-        as.data.frame(evse_dcfc[evse_dcfc$connector_code == 1 |
-                                  evse_dcfc$connector_code == 3, ])
-      
-      stranded_df <-
-        globals$stash$pool %>%
-        dplyr::tbl("ev_stranded") %>%
-        dplyr::filter(analysis_id == a_id) %>%
-        dplyr::collect()
-      
-      leaflet::leaflet() %>%
-        leaflet.mapboxgl::addMapboxGL(
-          style = "mapbox://styles/mapbox/satellite-streets-v11",
-          group = tile_layers[3],
-          setView = FALSE,
-          accessToken = "pk.eyJ1IjoiY2hpbnRhbnAiLCJhIjoiY2ppYXU1anVuMThqazNwcDB2cGtneDdkYyJ9.TL6RTyRRFCbvJWyFa4P0Ow"
-        ) %>%
-        leaflet.mapboxgl::addMapboxGL(
-          style = "mapbox://styles/mapbox/streets-v11",
-          group = tile_layers[2],
-          setView = FALSE,
-          accessToken = "pk.eyJ1IjoiY2hpbnRhbnAiLCJhIjoiY2ppYXU1anVuMThqazNwcDB2cGtneDdkYyJ9.TL6RTyRRFCbvJWyFa4P0Ow"
-        ) %>%
-        leaflet.mapboxgl::addMapboxGL(
-          style = "mapbox://styles/mapbox/light-v10",
-          group = tile_layers[1],
-          setView = FALSE,
-          accessToken = "pk.eyJ1IjoiY2hpbnRhbnAiLCJhIjoiY2ppYXU1anVuMThqazNwcDB2cGtneDdkYyJ9.TL6RTyRRFCbvJWyFa4P0Ow"
-        ) %>%
-        # addPolylines(data = wa_roads, opacity = 1, weight = 2) %>%
-        leaflet.extras::addResetMapButton() %>%
-        leafem::addMouseCoordinates() %>%
-        leaflet::addMarkers(
-          lng = ~ longitude ,
-          lat = ~ latitude,
-          icon = evse_icon_blue,
-          group = base_layers[1],
-          data = all_chargers_combo
-        )  %>%
-        leaflet::addMarkers(
-          lng = ~ longitude ,
-          lat = ~ latitude,
-          icon = evse_icon_green,
-          group = base_layers[2],
-          data = all_chargers_chademo
-        ) %>%
-        leaflet::addCircleMarkers(
-          lat = stranded_df$stranded_lat,
-          lng = stranded_df$stranded_lng,
-          radius = 4,
-          color = "#b50d2c",
-          popup = paste(
-            stranded_df$origin_zip,
-            stranded_df$destination_zip,
-            sep = "->"
-          ),
-          label = paste(
-            stranded_df$origin_zip,
-            stranded_df$destination_zip,
-            sep = "->"
-          ),
-          stroke = FALSE,
-          fillOpacity = 0.5
-        ) %>%
-        leaflet::addLabelOnlyMarkers(
-          lng = ~ longitude,
-          lat = ~ latitude,
-          data = dplyr::filter(evse_dcfc, grepl('n', evse_id)),
-          label = "new",
-          group = "new_labels",
-          labelOptions = leaflet::labelOptions(
-            noHide = TRUE,
-            direction = "bottom",
-            textOnly = TRUE,
-            offset = c(0, -10),
-            opacity = 1,
-            style = list(
-              "color" = "red",
-              "font-family" = "serif",
-              "font-style" = "italic",
-              "box-shadow" = "3px 3px rgba(0,0,0,0.25)",
-              "font-size" = "15px",
-              "border-color" = "rgba(0,0,0,0.5)"
-            )
-          )
-        ) %>%
-        leaflet::addLayersControl(
-          overlayGroups = base_layers,
-          baseGroups = tile_layers,
-          options = leaflet::layersControlOptions(collapsed = FALSE)
-        )
-      # } else {
-      #   showModal(
-      #     modalDialog(
-      #       size = "s",
-      #       easyClose = TRUE,
-      #       "Select a simulation run time to see the stranded vehicles."
-      #     )
-      #   )
-      # }
-      
-      # print("After markers")
-    })
-    
-    observeEvent(input$ev_table_rows_selected, {
-      row_selected = bevs[input$ev_table_rows_selected,]
-      # Reset previously selected marker
-      if (!is.null(prev_ev_row()))
-      {
-        clearMapOverlay(mapID = "wa_ooc_mapout")
-      }
-      
-      plot_trajectory(row_selected, globals$stash$a_id, evse_dcfc)
-      
-      
-      # set new value to reactiveVal
-      prev_ev_row(row_selected)
-    })
-    
-  })
+                   )
+                 )
+                 
+                 a_id <- globals$stash$a_id
+                 nevse_query <-
+                   paste0(
+                     "SELECT concat('n', nevse_id) as evse_id, latitude, longitude, dcfc_plug_count as dcfc_count, connector_code from new_evses where dcfc_plug_count > 0 and analysis_id = ",
+                     a_id
+                   )
+                 nevse_dcfc <-
+                   DBI::dbGetQuery(globals$stash$pool, nevse_query)
+                 
+                 evse_dcfc <-
+                   rbind(globals$stash$bevse_dcfc, nevse_dcfc)
+                 
+                 output$ev_table <- DT::renderDataTable({
+                   if (nrow(bevs) > 0) {
+                     DT::datatable(
+                       bevs,
+                       selection = "single",
+                       filter = 'top',
+                       options = list(
+                         pageLength = 10,
+                         autoWidth = TRUE,
+                         scrollX = TRUE,
+                         scrollCollapse = TRUE,
+                         columnDefs = list(list(
+                           className = 'dt-center', targets = "_all"
+                         )),
+                         dom = 'Bfrtip',
+                         buttons = c(('colvis')),
+                         initComplete = DT::JS(
+                           "function(settings, json) {",
+                           "$(this.api().table().header()).css({'background-color': '#EBECEC', 'color': '#000'});",
+                           "}"
+                         )
+                       ),
+                       class = 'nowrap display',
+                       extensions = c('Buttons', 'FixedColumns')
+                     ) %>% DT::formatRound('capacity', 1) %>% DT::formatRound('fuel_consumption', 1)
+                   }
+                   else {
+                     showModal(
+                       modalDialog(
+                         size = "s",
+                         easyClose = TRUE,
+                         "Select a simulation run time to see the EVs in a simulation."
+                       )
+                     )
+                   }
+                 })
+                 
+                 output$wa_ooc_mapout <- leaflet::renderLeaflet({
+                   od_str <- NULL
+                   # if (!rapportools::is.empty(rvData$simulation_runtime)) {
+                   # req(globals$stash$a_id)
+                   
+                   all_chargers_combo <-
+                     as.data.frame(evse_dcfc[evse_dcfc$connector_code == 2 |
+                                               evse_dcfc$connector_code == 3, ])
+                   
+                   all_chargers_chademo <-
+                     as.data.frame(evse_dcfc[evse_dcfc$connector_code == 1 |
+                                               evse_dcfc$connector_code == 3, ])
+                   
+                   stranded_df <-
+                     globals$stash$pool %>%
+                     dplyr::tbl("ev_stranded") %>%
+                     dplyr::filter(analysis_id == a_id) %>%
+                     dplyr::collect()
+                   
+                   leaflet::leaflet() %>%
+                     leaflet.mapboxgl::addMapboxGL(
+                       style = "mapbox://styles/mapbox/satellite-streets-v11",
+                       group = tile_layers[3],
+                       setView = FALSE,
+                       accessToken = "pk.eyJ1IjoiY2hpbnRhbnAiLCJhIjoiY2ppYXU1anVuMThqazNwcDB2cGtneDdkYyJ9.TL6RTyRRFCbvJWyFa4P0Ow"
+                     ) %>%
+                     leaflet.mapboxgl::addMapboxGL(
+                       style = "mapbox://styles/mapbox/streets-v11",
+                       group = tile_layers[2],
+                       setView = FALSE,
+                       accessToken = "pk.eyJ1IjoiY2hpbnRhbnAiLCJhIjoiY2ppYXU1anVuMThqazNwcDB2cGtneDdkYyJ9.TL6RTyRRFCbvJWyFa4P0Ow"
+                     ) %>%
+                     leaflet.mapboxgl::addMapboxGL(
+                       style = "mapbox://styles/mapbox/light-v10",
+                       group = tile_layers[1],
+                       setView = FALSE,
+                       accessToken = "pk.eyJ1IjoiY2hpbnRhbnAiLCJhIjoiY2ppYXU1anVuMThqazNwcDB2cGtneDdkYyJ9.TL6RTyRRFCbvJWyFa4P0Ow"
+                     ) %>%
+                     # addPolylines(data = wa_roads, opacity = 1, weight = 2) %>%
+                     leaflet.extras::addResetMapButton() %>%
+                     leafem::addMouseCoordinates() %>%
+                     leaflet::addMarkers(
+                       lng = ~ longitude ,
+                       lat = ~ latitude,
+                       icon = evse_icon_blue,
+                       group = base_layers[1],
+                       data = all_chargers_combo
+                     )  %>%
+                     leaflet::addMarkers(
+                       lng = ~ longitude ,
+                       lat = ~ latitude,
+                       icon = evse_icon_green,
+                       group = base_layers[2],
+                       data = all_chargers_chademo
+                     ) %>%
+                     leaflet::addCircleMarkers(
+                       lat = stranded_df$stranded_lat,
+                       lng = stranded_df$stranded_lng,
+                       radius = 4,
+                       color = "#b50d2c",
+                       popup = paste(
+                         stranded_df$origin_zip,
+                         stranded_df$destination_zip,
+                         sep = "->"
+                       ),
+                       label = paste(
+                         stranded_df$origin_zip,
+                         stranded_df$destination_zip,
+                         sep = "->"
+                       ),
+                       stroke = FALSE,
+                       fillOpacity = 0.5
+                     ) %>%
+                     leaflet::addLabelOnlyMarkers(
+                       lng = ~ longitude,
+                       lat = ~ latitude,
+                       data = dplyr::filter(evse_dcfc, grepl('n', evse_id)),
+                       label = "new",
+                       group = "new_labels",
+                       labelOptions = leaflet::labelOptions(
+                         noHide = TRUE,
+                         direction = "bottom",
+                         textOnly = TRUE,
+                         offset = c(0, -10),
+                         opacity = 1,
+                         style = list(
+                           "color" = "red",
+                           "font-family" = "serif",
+                           "font-style" = "italic",
+                           "box-shadow" = "3px 3px rgba(0,0,0,0.25)",
+                           "font-size" = "15px",
+                           "border-color" = "rgba(0,0,0,0.5)"
+                         )
+                       )
+                     ) %>%
+                     leaflet::addLayersControl(
+                       overlayGroups = base_layers,
+                       baseGroups = tile_layers,
+                       options = leaflet::layersControlOptions(collapsed = FALSE)
+                     )
+                   # } else {
+                   #   showModal(
+                   #     modalDialog(
+                   #       size = "s",
+                   #       easyClose = TRUE,
+                   #       "Select a simulation run time to see the stranded vehicles."
+                   #     )
+                   #   )
+                   # }
+                   
+                   # print("After markers")
+                 })
+                 
+                 observeEvent(input$ev_table_rows_selected, {
+                   row_selected = bevs[input$ev_table_rows_selected,]
+                   # Reset previously selected marker
+                   if (!is.null(prev_ev_row()))
+                   {
+                     clearMapOverlay(mapID = "wa_ooc_mapout")
+                   }
+                   
+                   plot_trajectory(row_selected, globals$stash$a_id, evse_dcfc)
+                   
+                   
+                   # set new value to reactiveVal
+                   prev_ev_row(row_selected)
+                 })
+                 
+               },
+               ignoreInit = TRUE,
+               autoDestroy = FALSE)
 }
 
 ## To be copied in the UI

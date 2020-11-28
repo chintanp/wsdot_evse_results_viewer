@@ -35,30 +35,25 @@ app_server <- function(input, output, session) {
       #                                                           status == "solved") %>% dplyr::collect()
       GlobalData$stash$pool %>% DBI::dbGetQuery(
         glue::glue(
-          "select (cast(set_id as text) || ' - ' || cast(analysis_id as text) || ' - ' ||
-        cast(timezone('{Sys.timezone()}', date_trunc('second', sim_date_time)) as text)) as sas
-from analysis_record
-where status = 'solved'
-  and user_id = '{userid}'
-order by sim_date_time desc;"
+          "select analysis_id, timezone('{Sys.timezone()}', date_trunc('second', sim_date_time)) as sim_date_time from analysis_record where status = 'solved' and user_id = '{userid}' order by sim_date_time desc;"
         )
       )
     # browser()
-    updateSelectInput(
-      session,
-      inputId = "select_analysis",
-      choices = GlobalData$stash$analyses$sas
-    )
+    updateSelectInput(session,
+                      inputId = "select_analysis",
+                      choices = GlobalData$stash$analyses$sim_date_time)
     
     
   })
   
-  # observeEvent(input$select_datetime, {
-  #   req(input$select_datetime)
-  #
+  # observeEvent(input$select_analysis, {
+  #   req(input$select_analysis)
+  #   a_id <-
+  #     as.numeric(strsplit(input$select_analysis, ' - ', fixed = TRUE)[[1]][2])
+  #   GlobalData$stash$a_id  <- a_id
   #   # GlobalData$stash$a_id <- GlobalData$stash$analyses$analysis_id[GlobalData$stash$analyses$sim_date_time == input$select_datetime]
-  #   # print(GlobalData$stash$a_id)
-  # })
+  #   print(GlobalData$stash$a_id)
+  # }, ignoreInit = TRUE)
   # List the first level callModules here
   callModule(mod_bevs_server, "bevs_ui_1", GlobalData, input)
   callModule(mod_evses_server, "evses_ui_1", GlobalData, input)
