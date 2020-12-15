@@ -102,7 +102,8 @@ mod_evses_server <-
   function(input,
            output,
            session,
-           globals) {
+           globals,
+           globalinput) {
     ns <- session$ns
     
     tile_layers <- c("light", "streets", "satellite-streets")
@@ -164,369 +165,383 @@ mod_evses_server <-
     rvData <- reactiveValues(cs_df = data.frame(),
                              ws_df = data.frame())
     
-    observe({
-      # req(globalinput$select_datetime)
-      # globals$stash$a_id <-
-      #   globals$stash$analyses$analysis_id[globals$stash$analyses$sim_date_time == globalinput$select_datetime]
-      # print(globals$stash$a_id)
-      req(globals$stash$a_id)
-      a_id <- globals$stash$a_id
-      nevse_query <-
-        paste0(
-          "SELECT concat('n', nevse_id) as evse_id, latitude, longitude, dcfc_plug_count as dcfc_count, connector_code from new_evses where dcfc_plug_count > 0 and analysis_id = ",
-          a_id
-        )
-      nevse_dcfc <-
-        DBI::dbGetQuery(globals$stash$pool, nevse_query)
-      
-      evse_dcfc <-
-        rbind(globals$stash$bevse_dcfc, nevse_dcfc)
-      
-      
-      all_chargers_combo <-
-        as.data.frame(evse_dcfc[evse_dcfc$connector_code == 2 |
-                                  evse_dcfc$connector_code == 3,])
-      
-      all_chargers_chademo <-
-        as.data.frame(evse_dcfc[evse_dcfc$connector_code == 1 |
-                                  evse_dcfc$connector_code == 3,])
-      
-      globals$stash$all_chargers_combo <- all_chargers_combo
-      globals$stash$all_chargers_chademo <- all_chargers_chademo
-      # power_draw_evse <- data.frame()
-      
-      # power_draw_df <- globals$stash$pool %>%
-      #   dplyr::tbl("evse_power_draw") %>%
-      #   dplyr::filter(analysis_id == a_id) %>%
-      #   dplyr::collect()
-      #
-      # power_draw_evse <- power_draw_df %>%
-      #   dplyr::group_by(evse_id) %>%
-      #   dplyr::summarise(energy_consumed = round(sum(as.numeric(power_val)) / 60, digits = 0)) %>%
-      #   dplyr::mutate(evse_id = gsub("\\..*", "", evse_id))
-      
-      power_draw_evse <- globals$stash$pool %>%
-        dplyr::tbl("evse_power_draw") %>%
-        dplyr::select(evse_id, power_val, analysis_id) %>%
-        dplyr::filter(analysis_id == a_id)  %>%
-        dplyr::group_by(evse_id) %>%
-        dplyr::summarise(energy_consumed = round(sum(as.numeric(power_val)) / 60, digits = 0)) %>%
-        dplyr::collect() %>%
-        dplyr::mutate(evse_id = gsub("\\..*", "", evse_id))
-      # power_draw_evse <-
-      #   power_draw_df %>% dplyr::group_by(evse_id) %>% summarise(energy_consumed = round(sum(as.numeric(power_val)) / 60, digits = 0)) %>% mutate(evse_id = gsub("\\..*", "", evse_id))
-      
-      charging_session_df <- DBI::dbGetQuery(
-        globals$stash$pool,
-        paste0(
-          'select evse_id, charge_start_time, charge_end_time, veh_id, starting_soc, ending_soc from evse_charging_session where analysis_id = ',
-          a_id
-        )
-      )
-      globals$stash$charging_session_df <- charging_session_df
-      cs_evse <-
-        charging_session_df %>%
-        dplyr::group_by(evse_id) %>%
-        dplyr::summarise("# served" = dplyr::n()) %>%
-        dplyr::mutate(evse_id = gsub("\\..*", "", evse_id))
-      
-      evs_waiting_df <-
-        globals$stash$pool %>%
-        dplyr::tbl("evse_evs_waiting") %>%
-        dplyr::filter(analysis_id == a_id) %>%
-        dplyr::collect()
-      waiting_evse <- evs_waiting_df %>%
-        dplyr::group_by(evse_id) %>%
-        dplyr::summarise("# waited" = dplyr::n()) %>%
-        dplyr::mutate(evse_id = gsub("\\..*", "", evse_id))
-      
-      globals$stash$evs_waiting_df <- evs_waiting_df
-      # browser()
-      
-      evse_dcfc_data <-
-        merge(evse_dcfc,
-              power_draw_evse,
-              by = "evse_id",
-              all.x = TRUE)
-      evse_dcfc_data <-
-        merge(evse_dcfc_data,
-              cs_evse,
-              by = "evse_id",
-              all.x = TRUE)
-      evse_dcfc_data <-
-        merge(evse_dcfc_data,
-              waiting_evse,
-              by = "evse_id",
-              all.x = TRUE) %>% tidyr::replace_na(list(
-                energy_consumed = 0,
-                "# served" = 0,
-                "# waited" = 0
-              ))
-      
-      globals$stash$evse_dcfc_data <- evse_dcfc_data
-      
-      output$evse_table <- DT::renderDataTable({
-        if (nrow(evse_dcfc_data) > 0) {
-          DT::datatable(
-            evse_dcfc_data %>% dplyr::filter(connector_code < 4),
-            selection = "single",
-            filter = 'top',
-            options = list(
-              pageLength = 4,
-              autoWidth = FALSE,
-              scrollX = TRUE,
-              scrollY = "200px",
-              columnDefs = list(list(
-                className = 'dt-center', targets = "_all"
-              )),
-              dom = 'Bfrtip',
-              buttons = c('csv', 'print', I('colvis')),
-              scrollCollapse = T,
-              paging = F,
-              initComplete = DT::JS(
-                "function(settings, json) {",
-                "$(this.api().table().header()).css({'background-color': '#EBECEC', 'color': '#000'});",
-                "}"
-              )
-            ),
-            class = 'nowrap display',
-            extensions = c('Buttons', 'FixedColumns')
-          )
-        }
-        else {
-          showModal(
-            modalDialog(
-              size = "s",
-              easyClose = TRUE,
-              "Select a simulation run time to see the EVSE utilization."
-            )
-          )
-        }
-      })
-      
-      output$wa_evse_util_mapout <- leaflet::renderLeaflet({
-        # browser()
-        
-        # print(rvData$date_selected)
-        # if(rvData$date_selected != FALSE) {
-        #   print("Date had been selected before")
-        #   clearMapOverlay("wa_evse_util_mapout")
-        # }
-        
-        # clearMapOverlay("wa_evse_util_mapout")
-        range_start_time <-
-          as.POSIXct(paste(
-            simulated_date,
-            paste(input$evse_util_slider[1], 0, 0, sep = ":")
-          ),
-          tz = "Etc/GMT+8",
-          format = "%Y-%m-%d %H:%M:%S")
-        range_end_time <-
-          as.POSIXct(paste(
-            simulated_date,
-            paste(input$evse_util_slider[2], 0, 0, sep = ":")
-          ),
-          tz = "Etc/GMT+8",
-          format = "%Y-%m-%d %H:%M:%S")
-        
-        if (input$evse_serve_wait_radio == "Waited") {
-          evs_waited_df_tw <-
-            evs_waiting_df %>% dplyr::mutate(
-              datetime = as.POSIXct(
-                wait_start_time,
-                origin = as.POSIXct("1970-01-01", tz = "Etc/GMT+8"),
-                tz = "Etc/GMT+8"
-              ),
-              evse_id = gsub("\\..*", "", evse_id)
-            ) %>%
-            dplyr::filter(datetime >= range_start_time &
-                            datetime <= range_end_time) %>%
-            dplyr::group_by(evse_id) %>%
-            dplyr::summarise(count = dplyr::n())
-          
-          evs_waited_df_tw_combo <-
-            merge(evs_waited_df_tw,
-                  all_chargers_combo,
-                  by = "evse_id",
-                  all.x = TRUE)
-          evs_waited_df_tw_chademo <-
-            merge(evs_waited_df_tw,
-                  all_chargers_chademo,
-                  by = "evse_id",
-                  all.x = TRUE)
-          overlay_text <- "Waited: "
-          overlay_color <- "#b50d2c"
-          overlay_combo <- na.omit(evs_waited_df_tw_combo)
-          overlay_chademo <- na.omit(evs_waited_df_tw_chademo)
-        } else if (input$evse_serve_wait_radio == "Served") {
-          evs_served_df_tw <-
-            charging_session_df %>% dplyr::mutate(
-              datetime = as.POSIXct(
-                charge_start_time,
-                origin = as.POSIXct("1970-01-01", tz = "Etc/GMT+8"),
-                tz = "Etc/GMT+8"
-              ),
-              evse_id = gsub("\\..*", "", evse_id)
-            ) %>%
-            dplyr::filter(datetime >= range_start_time &
-                            datetime <= range_end_time) %>%
-            dplyr::group_by(evse_id) %>%
-            dplyr::summarise(count = dplyr::n())
-          
-          
-          # evs_served_waited_combo_tw <- na.omit(merge(evs_waited_df_tw_combo, evs_served_df_tw, all.x = TRUE))
-          #
-          # evs_served_waited_chademo_tw <- na.omit(merge(evs_waited_df_tw_chademo, evs_served_df_tw, all.x = TRUE))
-          #
-          evs_served_df_tw_combo <-
-            merge(evs_served_df_tw,
-                  all_chargers_combo,
-                  by = "evse_id",
-                  all.x = TRUE)
-          evs_served_df_tw_chademo <-
-            merge(evs_served_df_tw,
-                  all_chargers_chademo,
-                  by = "evse_id",
-                  all.x = TRUE)
-          overlay_text <- "Served: "
-          overlay_color <- "#75d654"
-          overlay_combo <- na.omit(evs_served_df_tw_combo)
-          overlay_chademo <- na.omit(evs_served_df_tw_chademo)
-        }
-        
-        if (nrow(overlay_combo) > 0 & nrow(overlay_chademo) > 0) {
-          # browser()
-          wa_map %>%
-            leaflet::addMarkers(
-              lng = ~ longitude ,
-              lat = ~ latitude,
-              layerId = ~ paste0("co", evse_id),
-              icon = evse_icon_blue,
-              group = base_layers[1],
-              data = all_chargers_combo,
-              options = leaflet::pathOptions(pane = "chargers")
-            )  %>%
-            leaflet::addMarkers(
-              lng = ~ longitude ,
-              lat = ~ latitude,
-              layerId = ~ paste0("ch", evse_id),
-              icon = evse_icon_green,
-              group = base_layers[2],
-              data = all_chargers_chademo,
-              options = leaflet::pathOptions(pane = "chargers")
-            ) %>%
-            leaflet::addLabelOnlyMarkers(
-              lng = ~ longitude,
-              lat = ~ latitude,
-              data = dplyr::filter(evse_dcfc, grepl('n', evse_id)),
-              label = "new",
-              group = "new_labels",
-              labelOptions = leaflet::labelOptions(
-                noHide = TRUE,
-                direction = "bottom",
-                textOnly = TRUE,
-                offset = c(0, -10),
-                opacity = 1,
-                style = list(
-                  "color" = "red",
-                  "font-family" = "serif",
-                  "font-style" = "italic",
-                  "box-shadow" = "3px 3px rgba(0,0,0,0.25)",
-                  "font-size" = "15px",
-                  "border-color" = "rgba(0,0,0,0.5)"
-                )
-              )
-            ) %>%
-            leaflet::addLabelOnlyMarkers(
-              lng = overlay_combo$longitude,
-              lat = overlay_combo$latitude,
-              label = as.character(overlay_combo$count),
-              layerId = paste0("cm", overlay_combo$evse_id),
-              group = base_layers[1],
-              labelOptions = leaflet::labelOptions(
-                noHide = TRUE,
-                direction = "bottom",
-                textOnly = TRUE,
-                offset = c(0, -10),
-                opacity = 1
-              )
-            ) %>%  leaflet::addLabelOnlyMarkers(
-              lng = overlay_chademo$longitude,
-              lat = overlay_chademo$latitude,
-              label = as.character(overlay_chademo$count),
-              layerId = paste0("cd", overlay_chademo$evse_id),
-              group = base_layers[2] ,
-              labelOptions = leaflet::labelOptions(
-                noHide = TRUE,
-                direction = "bottom",
-                textOnly = TRUE,
-                offset = c(0, -10),
-                opacity = 1
-              )
-            ) %>%
-            leaflet::addCircleMarkers(
-              lng = overlay_combo$longitude,
-              lat = overlay_combo$latitude,
-              radius = 30 * sqrt(overlay_combo$count) / sqrt(max(overlay_combo$count)),
-              #log(100 * overlay_combo$count),
-              layerId = paste0("cc", overlay_combo$evse_id),
-              group = base_layers[1],
-              color = overlay_color,
-              popup = paste0(overlay_text, overlay_combo$count),
-              labelOptions = leaflet::labelOptions(
-                noHide = TRUE,
-                direction = "bottom",
-                textOnly = TRUE,
-                offset = c(0, -10),
-                opacity = 1
-              )
-            ) %>%
-            leaflet::addCircleMarkers(
-              lng = overlay_chademo$longitude,
-              lat = overlay_chademo$latitude,
-              radius = 30 * sqrt(overlay_chademo$count) / sqrt(max(overlay_chademo$count)),
-              # log(100 * overlay_chademo$count),
-              layerId = paste0("ce", overlay_chademo$evse_id),
-              group = base_layers[2],
-              color = overlay_color,
-              popup = paste0(overlay_text, overlay_chademo$count),
-              labelOptions = leaflet::labelOptions(
-                noHide = TRUE,
-                direction = "bottom",
-                textOnly = TRUE,
-                offset = c(0, -10),
-                opacity = 1
-              )
-            ) %>%
-            leaflet::addLayersControl(
-              overlayGroups = base_layers,
-              baseGroups = tile_layers,
-              options = leaflet::layersControlOptions(collapsed = FALSE)
-            )
-          
-          # rvData$date_selected <- TRUE
-        }
-        else
-          (showModal(
-            modalDialog(
-              size = "s",
-              easyClose = TRUE,
-              "No data found. Select a wider time window."
-            )
-          ))
-        # } else {
-        #   showModal(
-        #     modalDialog(
-        #       size = "s",
-        #       easyClose = TRUE,
-        #       "Select a simulation run time to see the EVSE utilization."
-        #     )
-        #   )
-        # }
-        
-      })
-      
-    })
+    observeEvent(globalinput$select_analysis,
+                 {
+                   req(globalinput$select_analysis)
+                   globals$stash$a_id <-
+                     globals$stash$analyses$analysis_id[globals$stash$analyses$sim_date_time == globalinput$select_analysis]
+                   # as.numeric(strsplit(globalinput$select_analysis, ' - ', fixed = TRUE)[[1]][2])
+                   # print(globals$stash$a_id)
+                   req(globals$stash$a_id)
+                   a_id <- globals$stash$a_id
+                   evse_query <-
+                     paste0(
+                       "SELECT evse_id, latitude, longitude, dcfc_count, connector_code from evses_now where analysis_id = ",
+                       a_id,
+                       " and dcfc_count > 0;"
+                     )
+                   evse_dcfc <-
+                     DBI::dbGetQuery(globals$stash$pool, evse_query)
+                   
+                   # evse_dcfc <-
+                   #   rbind(globals$stash$bevse_dcfc, nevse_dcfc)
+                   
+                   
+                   all_chargers_combo <-
+                     as.data.frame(evse_dcfc[evse_dcfc$connector_code == 2 |
+                                               evse_dcfc$connector_code == 3, ])
+                   
+                   all_chargers_chademo <-
+                     as.data.frame(evse_dcfc[evse_dcfc$connector_code == 1 |
+                                               evse_dcfc$connector_code == 3, ])
+                   
+                   globals$stash$all_chargers_combo <-
+                     all_chargers_combo
+                   globals$stash$all_chargers_chademo <-
+                     all_chargers_chademo
+                   # power_draw_evse <- data.frame()
+                   
+                   # power_draw_df <- globals$stash$pool %>%
+                   #   dplyr::tbl("evse_power_draw") %>%
+                   #   dplyr::filter(analysis_id == a_id) %>%
+                   #   dplyr::collect()
+                   #
+                   # power_draw_evse <- power_draw_df %>%
+                   #   dplyr::group_by(evse_id) %>%
+                   #   dplyr::summarise(energy_consumed = round(sum(as.numeric(power_val)) / 60, digits = 0)) %>%
+                   #   dplyr::mutate(evse_id = gsub("\\..*", "", evse_id))
+                   
+                   power_draw_evse <- globals$stash$pool %>%
+                     dplyr::tbl("evse_power_draw") %>%
+                     dplyr::select(evse_id, power_val, analysis_id) %>%
+                     dplyr::filter(analysis_id == a_id)  %>%
+                     dplyr::group_by(evse_id) %>%
+                     dplyr::summarise(energy_consumed = round(sum(as.numeric(power_val)) / 60, digits = 0)) %>%
+                     dplyr::collect() %>%
+                     dplyr::mutate(evse_id = gsub("\\..*", "", evse_id))
+                   # power_draw_evse <-
+                   #   power_draw_df %>% dplyr::group_by(evse_id) %>% summarise(energy_consumed = round(sum(as.numeric(power_val)) / 60, digits = 0)) %>% mutate(evse_id = gsub("\\..*", "", evse_id))
+                   
+                   charging_session_df <- DBI::dbGetQuery(
+                     globals$stash$pool,
+                     paste0(
+                       'select evse_id, charge_start_time, charge_end_time, veh_id, starting_soc, ending_soc from evse_charging_session where analysis_id = ',
+                       a_id
+                     )
+                   )
+                   globals$stash$charging_session_df <-
+                     charging_session_df
+                   cs_evse <-
+                     charging_session_df %>%
+                     dplyr::group_by(evse_id) %>%
+                     dplyr::summarise("# served" = dplyr::n()) %>%
+                     dplyr::mutate(evse_id = gsub("\\..*", "", evse_id))
+                   
+                   evs_waiting_df <-
+                     globals$stash$pool %>%
+                     dplyr::tbl("evse_evs_waiting") %>%
+                     dplyr::filter(analysis_id == a_id) %>%
+                     dplyr::collect()
+                   waiting_evse <- evs_waiting_df %>%
+                     dplyr::group_by(evse_id) %>%
+                     dplyr::summarise("# waited" = dplyr::n()) %>%
+                     dplyr::mutate(evse_id = gsub("\\..*", "", evse_id))
+                   
+                   globals$stash$evs_waiting_df <- evs_waiting_df
+                   # browser()
+                   
+                   evse_dcfc_data <-
+                     merge(evse_dcfc,
+                           power_draw_evse,
+                           by = "evse_id",
+                           all.x = TRUE)
+                   evse_dcfc_data <-
+                     merge(evse_dcfc_data,
+                           cs_evse,
+                           by = "evse_id",
+                           all.x = TRUE)
+                   evse_dcfc_data <-
+                     merge(evse_dcfc_data,
+                           waiting_evse,
+                           by = "evse_id",
+                           all.x = TRUE) %>% tidyr::replace_na(list(
+                             energy_consumed = 0,
+                             "# served" = 0,
+                             "# waited" = 0
+                           ))
+                   
+                   globals$stash$evse_dcfc_data <- evse_dcfc_data
+                   
+                   output$evse_table <- DT::renderDataTable({
+                     if (nrow(evse_dcfc_data) > 0) {
+                       DT::datatable(
+                         evse_dcfc_data %>% dplyr::filter(connector_code < 4),
+                         selection = "single",
+                         filter = 'top',
+                         options = list(
+                           pageLength = 4,
+                           autoWidth = FALSE,
+                           scrollX = TRUE,
+                           scrollY = "200px",
+                           columnDefs = list(list(
+                             className = 'dt-center', targets = "_all"
+                           )),
+                           dom = 'Bfrtip',
+                           buttons = c('csv', 'print', I('colvis')),
+                           scrollCollapse = T,
+                           paging = F,
+                           initComplete = DT::JS(
+                             "function(settings, json) {",
+                             "$(this.api().table().header()).css({'background-color': '#EBECEC', 'color': '#000'});",
+                             "}"
+                           )
+                         ),
+                         class = 'nowrap display',
+                         extensions = c('Buttons', 'FixedColumns')
+                       )
+                     }
+                     else {
+                       showModal(
+                         modalDialog(
+                           size = "s",
+                           easyClose = TRUE,
+                           "Select a simulation run time to see the EVSE utilization."
+                         )
+                       )
+                     }
+                   })
+                   
+                   output$wa_evse_util_mapout <-
+                     leaflet::renderLeaflet({
+                       # browser()
+                       
+                       # print(rvData$date_selected)
+                       # if(rvData$date_selected != FALSE) {
+                       #   print("Date had been selected before")
+                       #   clearMapOverlay("wa_evse_util_mapout")
+                       # }
+                       
+                       # clearMapOverlay("wa_evse_util_mapout")
+                       range_start_time <-
+                         as.POSIXct(paste(
+                           simulated_date,
+                           paste(input$evse_util_slider[1], 0, 0, sep = ":")
+                         ),
+                         tz = "Etc/GMT+8",
+                         format = "%Y-%m-%d %H:%M:%S")
+                       range_end_time <-
+                         as.POSIXct(paste(
+                           simulated_date,
+                           paste(input$evse_util_slider[2], 0, 0, sep = ":")
+                         ),
+                         tz = "Etc/GMT+8",
+                         format = "%Y-%m-%d %H:%M:%S")
+                       
+                       if (input$evse_serve_wait_radio == "Waited") {
+                         evs_waited_df_tw <-
+                           evs_waiting_df %>% dplyr::mutate(
+                             datetime = as.POSIXct(
+                               wait_start_time,
+                               origin = as.POSIXct("1970-01-01", tz = "Etc/GMT+8"),
+                               tz = "Etc/GMT+8"
+                             ),
+                             evse_id = gsub("\\..*", "", evse_id)
+                           ) %>%
+                           dplyr::filter(datetime >= range_start_time &
+                                           datetime <= range_end_time) %>%
+                           dplyr::group_by(evse_id) %>%
+                           dplyr::summarise(count = dplyr::n())
+                         
+                         evs_waited_df_tw_combo <-
+                           merge(evs_waited_df_tw,
+                                 all_chargers_combo,
+                                 by = "evse_id",
+                                 all.x = TRUE)
+                         evs_waited_df_tw_chademo <-
+                           merge(evs_waited_df_tw,
+                                 all_chargers_chademo,
+                                 by = "evse_id",
+                                 all.x = TRUE)
+                         overlay_text <- "Waited: "
+                         overlay_color <- "#b50d2c"
+                         overlay_combo <-
+                           na.omit(evs_waited_df_tw_combo)
+                         overlay_chademo <-
+                           na.omit(evs_waited_df_tw_chademo)
+                       } else if (input$evse_serve_wait_radio == "Served") {
+                         evs_served_df_tw <-
+                           charging_session_df %>% dplyr::mutate(
+                             datetime = as.POSIXct(
+                               charge_start_time,
+                               origin = as.POSIXct("1970-01-01", tz = "Etc/GMT+8"),
+                               tz = "Etc/GMT+8"
+                             ),
+                             evse_id = gsub("\\..*", "", evse_id)
+                           ) %>%
+                           dplyr::filter(datetime >= range_start_time &
+                                           datetime <= range_end_time) %>%
+                           dplyr::group_by(evse_id) %>%
+                           dplyr::summarise(count = dplyr::n())
+                         
+                         
+                         # evs_served_waited_combo_tw <- na.omit(merge(evs_waited_df_tw_combo, evs_served_df_tw, all.x = TRUE))
+                         #
+                         # evs_served_waited_chademo_tw <- na.omit(merge(evs_waited_df_tw_chademo, evs_served_df_tw, all.x = TRUE))
+                         #
+                         evs_served_df_tw_combo <-
+                           merge(evs_served_df_tw,
+                                 all_chargers_combo,
+                                 by = "evse_id",
+                                 all.x = TRUE)
+                         evs_served_df_tw_chademo <-
+                           merge(evs_served_df_tw,
+                                 all_chargers_chademo,
+                                 by = "evse_id",
+                                 all.x = TRUE)
+                         overlay_text <- "Served: "
+                         overlay_color <- "#75d654"
+                         overlay_combo <-
+                           na.omit(evs_served_df_tw_combo)
+                         overlay_chademo <-
+                           na.omit(evs_served_df_tw_chademo)
+                       }
+                       
+                       if (nrow(overlay_combo) > 0 &
+                           nrow(overlay_chademo) > 0) {
+                         # browser()
+                         wa_map %>%
+                           leaflet::addMarkers(
+                             lng = ~ longitude ,
+                             lat = ~ latitude,
+                             layerId = ~ paste0("co", evse_id),
+                             icon = evse_icon_blue,
+                             group = base_layers[1],
+                             data = all_chargers_combo,
+                             options = leaflet::pathOptions(pane = "chargers")
+                           )  %>%
+                           leaflet::addMarkers(
+                             lng = ~ longitude ,
+                             lat = ~ latitude,
+                             layerId = ~ paste0("ch", evse_id),
+                             icon = evse_icon_green,
+                             group = base_layers[2],
+                             data = all_chargers_chademo,
+                             options = leaflet::pathOptions(pane = "chargers")
+                           ) %>%
+                           leaflet::addLabelOnlyMarkers(
+                             lng = ~ longitude,
+                             lat = ~ latitude,
+                             data = dplyr::filter(evse_dcfc, grepl('n', evse_id)),
+                             label = "new",
+                             group = "new_labels",
+                             labelOptions = leaflet::labelOptions(
+                               noHide = TRUE,
+                               direction = "bottom",
+                               textOnly = TRUE,
+                               offset = c(0,-10),
+                               opacity = 1,
+                               style = list(
+                                 "color" = "red",
+                                 "font-family" = "serif",
+                                 "font-style" = "italic",
+                                 "box-shadow" = "3px 3px rgba(0,0,0,0.25)",
+                                 "font-size" = "15px",
+                                 "border-color" = "rgba(0,0,0,0.5)"
+                               )
+                             )
+                           ) %>%
+                           leaflet::addLabelOnlyMarkers(
+                             lng = overlay_combo$longitude,
+                             lat = overlay_combo$latitude,
+                             label = as.character(overlay_combo$count),
+                             layerId = paste0("cm", overlay_combo$evse_id),
+                             group = base_layers[1],
+                             labelOptions = leaflet::labelOptions(
+                               noHide = TRUE,
+                               direction = "bottom",
+                               textOnly = TRUE,
+                               offset = c(0,-10),
+                               opacity = 1
+                             )
+                           ) %>%  leaflet::addLabelOnlyMarkers(
+                             lng = overlay_chademo$longitude,
+                             lat = overlay_chademo$latitude,
+                             label = as.character(overlay_chademo$count),
+                             layerId = paste0("cd", overlay_chademo$evse_id),
+                             group = base_layers[2] ,
+                             labelOptions = leaflet::labelOptions(
+                               noHide = TRUE,
+                               direction = "bottom",
+                               textOnly = TRUE,
+                               offset = c(0,-10),
+                               opacity = 1
+                             )
+                           ) %>%
+                           leaflet::addCircleMarkers(
+                             lng = overlay_combo$longitude,
+                             lat = overlay_combo$latitude,
+                             radius = 30 * sqrt(overlay_combo$count) / sqrt(max(overlay_combo$count)),
+                             #log(100 * overlay_combo$count),
+                             layerId = paste0("cc", overlay_combo$evse_id),
+                             group = base_layers[1],
+                             color = overlay_color,
+                             popup = paste0(overlay_text, overlay_combo$count),
+                             labelOptions = leaflet::labelOptions(
+                               noHide = TRUE,
+                               direction = "bottom",
+                               textOnly = TRUE,
+                               offset = c(0,-10),
+                               opacity = 1
+                             )
+                           ) %>%
+                           leaflet::addCircleMarkers(
+                             lng = overlay_chademo$longitude,
+                             lat = overlay_chademo$latitude,
+                             radius = 30 * sqrt(overlay_chademo$count) / sqrt(max(overlay_chademo$count)),
+                             # log(100 * overlay_chademo$count),
+                             layerId = paste0("ce", overlay_chademo$evse_id),
+                             group = base_layers[2],
+                             color = overlay_color,
+                             popup = paste0(overlay_text, overlay_chademo$count),
+                             labelOptions = leaflet::labelOptions(
+                               noHide = TRUE,
+                               direction = "bottom",
+                               textOnly = TRUE,
+                               offset = c(0,-10),
+                               opacity = 1
+                             )
+                           ) %>%
+                           leaflet::addLayersControl(
+                             overlayGroups = base_layers,
+                             baseGroups = tile_layers,
+                             options = leaflet::layersControlOptions(collapsed = FALSE)
+                           )
+                         
+                         # rvData$date_selected <- TRUE
+                       }
+                       else
+                         (showModal(
+                           modalDialog(
+                             size = "s",
+                             easyClose = TRUE,
+                             "No data found. Select a wider time window."
+                           )
+                         ))
+                       # } else {
+                       #   showModal(
+                       #     modalDialog(
+                       #       size = "s",
+                       #       easyClose = TRUE,
+                       #       "Select a simulation run time to see the EVSE utilization."
+                       #     )
+                       #   )
+                       # }
+                       
+                     })
+                   
+                 },
+                 ignoreInit = TRUE,
+                 autoDestroy = FALSE)
     
     
     observeEvent(input$wa_evse_util_mapout_marker_click, {
@@ -710,7 +725,7 @@ mod_evses_server <-
     observeEvent(input$evse_table_rows_selected, {
       evse_dcfc <-
         globals$stash$evse_dcfc_data %>% dplyr::filter(connector_code < 4)
-      row_selected = evse_dcfc[input$evse_table_rows_selected,]
+      row_selected = evse_dcfc[input$evse_table_rows_selected, ]
       if (row_selected$connector_code == 1 |
           row_selected$connector_code == 3) {
         layer_id <- paste0("ch", row_selected$evse_id)
