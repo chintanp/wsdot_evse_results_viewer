@@ -417,8 +417,11 @@ where es.analysis_id = {globals$stash$a_id};"
                      )
                    }
                  })
+
+                 # browser()
                  
                  output$wa_ooc_mapout <- leaflet::renderLeaflet({
+                   # browser()
                    od_str <- NULL
                    # if (!rapportools::is.empty(rvData$simulation_runtime)) {
                    # req(globals$stash$a_id)
@@ -437,7 +440,7 @@ where es.analysis_id = {globals$stash$a_id};"
                      dplyr::filter(analysis_id == a_id) %>%
                      dplyr::collect()
                    
-                   leaflet::leaflet() %>%
+                   vmap <- leaflet::leaflet() %>%
                      leaflet.mapboxgl::addMapboxGL(
                        style = "mapbox://styles/mapbox/satellite-streets-v11",
                        group = tile_layers[3],
@@ -472,24 +475,6 @@ where es.analysis_id = {globals$stash$a_id};"
                        icon = evse_icon_green,
                        group = base_layers[2],
                        data = all_chargers_chademo
-                     ) %>%
-                     leaflet::addCircleMarkers(
-                       lat = stranded_df$stranded_lat,
-                       lng = stranded_df$stranded_lng,
-                       radius = 4,
-                       color = "#b50d2c",
-                       popup = paste(
-                         stranded_df$origin_zip,
-                         stranded_df$destination_zip,
-                         sep = "->"
-                       ),
-                       label = paste(
-                         stranded_df$origin_zip,
-                         stranded_df$destination_zip,
-                         sep = "->"
-                       ),
-                       stroke = FALSE,
-                       fillOpacity = 0.5
                      ) %>%
                      leaflet::addLabelOnlyMarkers(
                        lng = ~ longitude,
@@ -529,6 +514,29 @@ where es.analysis_id = {globals$stash$a_id};"
                    # }
                    
                    # print("After markers")
+                   
+                   if (dim(stranded_df)[1] != 0) {
+                     vmap <- vmap %>% leaflet::addCircleMarkers(
+                       lat = stranded_df$stranded_lat,
+                       lng = stranded_df$stranded_lng,
+                       radius = 4,
+                       color = "#b50d2c",
+                       popup = paste(
+                         stranded_df$origin_zip,
+                         stranded_df$destination_zip,
+                         sep = "->"
+                       ),
+                       label = paste(
+                         stranded_df$origin_zip,
+                         stranded_df$destination_zip,
+                         sep = "->"
+                       ),
+                       stroke = FALSE,
+                       fillOpacity = 0.5
+                     )
+                   }
+                   
+                   vmap
                  })
                  
                  observeEvent(input$ev_table_rows_selected, {
