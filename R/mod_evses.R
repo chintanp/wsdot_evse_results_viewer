@@ -180,8 +180,17 @@ mod_evses_server <-
                        a_id,
                        " and dcfc_count > 0;"
                      )
+                   
+                   nevse_query <-
+                     paste0(
+                       "SELECT nevse_id, latitude, longitude, dcfc_plug_count, connector_code, station_type, comments from new_evses where analysis_id = ",
+                       a_id
+                     )
                    evse_dcfc <-
                      DBI::dbGetQuery(globals$stash$pool, evse_query)
+                   
+                   nevse_dcfc <-
+                     DBI::dbGetQuery(globals$stash$pool, nevse_query)
                    
                    # evse_dcfc <-
                    #   rbind(globals$stash$bevse_dcfc, nevse_dcfc)
@@ -431,8 +440,8 @@ mod_evses_server <-
                            leaflet::addLabelOnlyMarkers(
                              lng = ~ longitude,
                              lat = ~ latitude,
-                             data = dplyr::filter(evse_dcfc, grepl('n', evse_id)),
-                             label = "new",
+                             data = nevse_dcfc,
+                             label = ~ station_type,
                              group = "new_labels",
                              labelOptions = leaflet::labelOptions(
                                noHide = TRUE,
