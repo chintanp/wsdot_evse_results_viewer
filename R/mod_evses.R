@@ -167,6 +167,7 @@ mod_evses_server <-
     
     observeEvent(globalinput$select_analysis,
                  {
+                   # browser()
                    req(globalinput$select_analysis)
                    globals$stash$a_id <-
                      globals$stash$analyses$analysis_id[globals$stash$analyses$sim_date_time == globalinput$select_analysis]
@@ -198,11 +199,11 @@ mod_evses_server <-
                    
                    all_chargers_combo <-
                      as.data.frame(evse_dcfc[evse_dcfc$connector_code == 2 |
-                                               evse_dcfc$connector_code == 3, ])
+                                               evse_dcfc$connector_code == 3,])
                    
                    all_chargers_chademo <-
                      as.data.frame(evse_dcfc[evse_dcfc$connector_code == 1 |
-                                               evse_dcfc$connector_code == 3, ])
+                                               evse_dcfc$connector_code == 3,])
                    
                    globals$stash$all_chargers_combo <-
                      all_chargers_combo
@@ -418,7 +419,7 @@ mod_evses_server <-
                        if (nrow(overlay_combo) > 0 &
                            nrow(overlay_chademo) > 0) {
                          # browser()
-                         wa_map %>%
+                         wa_map <- wa_map %>%
                            leaflet::addMarkers(
                              lng = ~ longitude ,
                              lat = ~ latitude,
@@ -437,55 +438,55 @@ mod_evses_server <-
                              data = all_chargers_chademo,
                              options = leaflet::pathOptions(pane = "chargers")
                            ) %>%
-                           leaflet::addLabelOnlyMarkers(
-                             lng = ~ longitude,
-                             lat = ~ latitude,
-                             data = nevse_dcfc,
-                             label = ~ station_type,
-                             group = "new_labels",
-                             labelOptions = leaflet::labelOptions(
-                               noHide = TRUE,
-                               direction = "bottom",
-                               textOnly = TRUE,
-                               offset = c(0,-10),
-                               opacity = 1,
-                               style = list(
-                                 "color" = "red",
-                                 "font-family" = "serif",
-                                 "font-style" = "italic",
-                                 "box-shadow" = "3px 3px rgba(0,0,0,0.25)",
-                                 "font-size" = "15px",
-                                 "border-color" = "rgba(0,0,0,0.5)"
-                               )
-                             )
-                           ) %>%
-                           leaflet::addLabelOnlyMarkers(
-                             lng = overlay_combo$longitude,
-                             lat = overlay_combo$latitude,
-                             label = as.character(overlay_combo$count),
-                             layerId = paste0("cm", overlay_combo$evse_id),
-                             group = base_layers[1],
-                             labelOptions = leaflet::labelOptions(
-                               noHide = TRUE,
-                               direction = "bottom",
-                               textOnly = TRUE,
-                               offset = c(0,-10),
-                               opacity = 1
-                             )
-                           ) %>%  leaflet::addLabelOnlyMarkers(
-                             lng = overlay_chademo$longitude,
-                             lat = overlay_chademo$latitude,
-                             label = as.character(overlay_chademo$count),
-                             layerId = paste0("cd", overlay_chademo$evse_id),
-                             group = base_layers[2] ,
-                             labelOptions = leaflet::labelOptions(
-                               noHide = TRUE,
-                               direction = "bottom",
-                               textOnly = TRUE,
-                               offset = c(0,-10),
-                               opacity = 1
-                             )
-                           ) %>%
+                           # leaflet::addLabelOnlyMarkers(
+                           #   lng = ~ longitude,
+                           #   lat = ~ latitude,
+                           #   data = nevse_dcfc,
+                           #   label = ~ station_type,
+                           #   group = "new_labels",
+                           #   labelOptions = leaflet::labelOptions(
+                           #     noHide = TRUE,
+                           #     direction = "bottom",
+                           #     textOnly = TRUE,
+                           #     offset = c(0,-10),
+                         #     opacity = 1,
+                         #     style = list(
+                         #       "color" = "red",
+                         #       "font-family" = "serif",
+                         #       "font-style" = "italic",
+                         #       "box-shadow" = "3px 3px rgba(0,0,0,0.25)",
+                         #       "font-size" = "15px",
+                         #       "border-color" = "rgba(0,0,0,0.5)"
+                         #     )
+                         #   )
+                         # ) %>%
+                         leaflet::addLabelOnlyMarkers(
+                           lng = overlay_combo$longitude,
+                           lat = overlay_combo$latitude,
+                           label = as.character(overlay_combo$count),
+                           layerId = paste0("cm", overlay_combo$evse_id),
+                           group = base_layers[1],
+                           labelOptions = leaflet::labelOptions(
+                             noHide = TRUE,
+                             direction = "bottom",
+                             textOnly = TRUE,
+                             offset = c(0, -10),
+                             opacity = 1
+                           )
+                         ) %>%  leaflet::addLabelOnlyMarkers(
+                           lng = overlay_chademo$longitude,
+                           lat = overlay_chademo$latitude,
+                           label = as.character(overlay_chademo$count),
+                           layerId = paste0("cd", overlay_chademo$evse_id),
+                           group = base_layers[2] ,
+                           labelOptions = leaflet::labelOptions(
+                             noHide = TRUE,
+                             direction = "bottom",
+                             textOnly = TRUE,
+                             offset = c(0, -10),
+                             opacity = 1
+                           )
+                         ) %>%
                            leaflet::addCircleMarkers(
                              lng = overlay_combo$longitude,
                              lat = overlay_combo$latitude,
@@ -499,7 +500,7 @@ mod_evses_server <-
                                noHide = TRUE,
                                direction = "bottom",
                                textOnly = TRUE,
-                               offset = c(0,-10),
+                               offset = c(0, -10),
                                opacity = 1
                              )
                            ) %>%
@@ -516,7 +517,7 @@ mod_evses_server <-
                                noHide = TRUE,
                                direction = "bottom",
                                textOnly = TRUE,
-                               offset = c(0,-10),
+                               offset = c(0, -10),
                                opacity = 1
                              )
                            ) %>%
@@ -546,6 +547,33 @@ mod_evses_server <-
                        #   )
                        # }
                        
+                       if (nrow(nevse_dcfc) > 0) {
+                         wa_map %>%
+                           leaflet::addLabelOnlyMarkers(
+                             lng = ~ longitude,
+                             lat = ~ latitude,
+                             data = nevse_dcfc,
+                             label = ~ station_type,
+                             group = "new_labels",
+                             labelOptions = leaflet::labelOptions(
+                               noHide = TRUE,
+                               direction = "bottom",
+                               textOnly = TRUE,
+                               offset = c(0, -10),
+                               opacity = 1,
+                               style = list(
+                                 "color" = "red",
+                                 "font-family" = "serif",
+                                 "font-style" = "italic",
+                                 "box-shadow" = "3px 3px rgba(0,0,0,0.25)",
+                                 "font-size" = "15px",
+                                 "border-color" = "rgba(0,0,0,0.5)"
+                               )
+                             )
+                           )
+                       } else {
+                         wa_map
+                       }
                      })
                    
                  },
@@ -554,6 +582,7 @@ mod_evses_server <-
     
     
     observeEvent(input$wa_evse_util_mapout_marker_click, {
+      req(input$wa_evse_util_mapout_marker_click$id)
       id = substr(
         input$wa_evse_util_mapout_marker_click$id,
         3,
@@ -591,11 +620,14 @@ mod_evses_server <-
                         evse_id == id) %>%
         dplyr::arrange(pd_id) %>%
         dplyr::collect() %>%
-        dplyr::mutate(datetime = as.POSIXct(
-          simulation_ts,
-          origin = as.POSIXct("1970-01-01", tz = "Etc/GMT+8"),
-          tz = "Etc/GMT+8"
-        )) %>%
+        dplyr::mutate(
+          datetime = as.POSIXct(
+            simulation_ts,
+            origin = as.POSIXct("1970-01-01", tz = "Etc/GMT+8"),
+            tz = "Etc/GMT+8"
+          ),
+          waiting_count = 0
+        ) %>%
         dplyr::filter(datetime >= range_start_time &
                         datetime <= range_end_time)
       
@@ -645,6 +677,59 @@ mod_evses_server <-
       evs_waiting <-
         nrow(relevant_evs_waiting_tw)
       
+      for (waiting_row in rownames(relevant_evs_waiting_tw)) {
+        # browser()
+        #build an index-vector matching the condition
+        index.v <-
+          which(
+            power_draw_evse$datetime >= relevant_evs_waiting_tw[waiting_row,]$datetime &
+              power_draw_evse$datetime <= as.POSIXct(
+                relevant_evs_waiting_tw[waiting_row,]$wait_end_time,
+                origin = as.POSIXct("1970-01-01", tz = "Etc/GMT+8"),
+                tz = "Etc/GMT+8"
+              )
+          )
+        
+        power_draw_evse[index.v, ]$waiting_count <-
+          power_draw_evse[index.v, ]$waiting_count + 1
+        # pd_subset$waiting_count <- pd_subset$waiting_count + 1
+      }
+      
+      
+      # Generate the plotly plot with two axes
+      ay <- list(
+        overlaying = "y",
+        side = "right",
+        title = "# EVs Waiting",
+        dtick = 1,
+        tick0 = 0,
+        tickmode = "linear"
+      )
+      # fig <- plotly::plot_ly()
+      fig <- plotly::plot_ly(
+        data = power_draw_evse,
+        x = ~ datetime,
+        y = ~ power_val,
+        name = "Power draw",
+        type = 'scatter',
+        mode = 'lines'
+      )
+      fig <-
+        fig %>% plotly::add_lines(
+          data = power_draw_evse,
+          x = ~ datetime,
+          y = ~ waiting_count,
+          name = "# EVs Waiting",
+          yaxis = "y2"
+        )
+      fig <- fig %>% plotly::layout(
+        title = "Power draw and # EVs Waiting",
+        yaxis2 = ay,
+        xaxis = list(title = "Time of day (minutes)"),
+        yaxis = list(title = "Power (kW)")
+      )
+      
+      
       if (nrow(power_draw_evse) >= 1) {
         showModal(
           modalDialog(
@@ -676,8 +761,7 @@ mod_evses_server <-
                 )
               )
             ),
-            plotly::renderPlotly(
-              # plot(
+            plotly::renderPlotly(# plot(
               #   x = power_draw_evse$datetime,
               #   y = power_draw_evse$power_val,
               #   type = "l",
@@ -687,21 +771,20 @@ mod_evses_server <-
               # )
               
               # fig <-
-              plotly::plot_ly(
-                power_draw_evse,
-                x = ~ datetime,
-                y = ~ power_val,
-                type = 'scatter',
-                mode = 'lines'
-              ) %>%
-                plotly::layout(
-                  title = "Power vs Time of day",
-                  xaxis = list(title = "Time of day (minutes)"),
-                  yaxis = list(title = "Power (kW)")
-                )
-              
-              # fig
-            ),
+              # plotly::plot_ly(
+              #   power_draw_evse,
+              #   x = ~ datetime,
+              #   y = ~ power_val,
+              #   type = 'scatter',
+              #   mode = 'lines'
+              # ) %>%
+              #   plotly::layout(
+              #     title = "Power vs Time of day",
+              #     xaxis = list(title = "Time of day (minutes)"),
+              #     yaxis = list(title = "Power (kW)")
+              #   )
+              #
+              fig),
             easyClose = TRUE,
             size = "l",
             fade = FALSE
@@ -734,7 +817,7 @@ mod_evses_server <-
     observeEvent(input$evse_table_rows_selected, {
       evse_dcfc <-
         globals$stash$evse_dcfc_data %>% dplyr::filter(connector_code < 4)
-      row_selected = evse_dcfc[input$evse_table_rows_selected, ]
+      row_selected = evse_dcfc[input$evse_table_rows_selected,]
       if (row_selected$connector_code == 1 |
           row_selected$connector_code == 3) {
         layer_id <- paste0("ch", row_selected$evse_id)

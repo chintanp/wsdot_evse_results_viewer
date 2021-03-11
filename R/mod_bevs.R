@@ -440,6 +440,16 @@ where es.analysis_id = {globals$stash$a_id};"
                      dplyr::filter(analysis_id == a_id) %>%
                      dplyr::collect()
                    
+                   nevse_query <-
+                     paste0(
+                       "SELECT nevse_id, latitude, longitude, dcfc_plug_count, connector_code, station_type, comments from new_evses where analysis_id = ",
+                       a_id
+                     )
+                   
+                   nevse_dcfc <-
+                     DBI::dbGetQuery(globals$stash$pool, nevse_query)
+                   
+                   
                    vmap <- leaflet::leaflet() %>%
                      leaflet.mapboxgl::addMapboxGL(
                        style = "mapbox://styles/mapbox/satellite-streets-v11",
@@ -476,28 +486,28 @@ where es.analysis_id = {globals$stash$a_id};"
                        group = base_layers[2],
                        data = all_chargers_chademo
                      ) %>%
-                     leaflet::addLabelOnlyMarkers(
-                       lng = ~ longitude,
-                       lat = ~ latitude,
-                       data = dplyr::filter(evse_dcfc, grepl('n', evse_id)),
-                       label = "new",
-                       group = "new_labels",
-                       labelOptions = leaflet::labelOptions(
-                         noHide = TRUE,
-                         direction = "bottom",
-                         textOnly = TRUE,
-                         offset = c(0,-10),
-                         opacity = 1,
-                         style = list(
-                           "color" = "red",
-                           "font-family" = "serif",
-                           "font-style" = "italic",
-                           "box-shadow" = "3px 3px rgba(0,0,0,0.25)",
-                           "font-size" = "15px",
-                           "border-color" = "rgba(0,0,0,0.5)"
-                         )
-                       )
-                     ) %>%
+                     # leaflet::addLabelOnlyMarkers(
+                     #   lng = ~ longitude,
+                     #   lat = ~ latitude,
+                     #   data = dplyr::filter(evse_dcfc, grepl('n', evse_id)),
+                     #   label = "new",
+                     #   group = "new_labels",
+                     #   labelOptions = leaflet::labelOptions(
+                     #     noHide = TRUE,
+                     #     direction = "bottom",
+                     #     textOnly = TRUE,
+                     #     offset = c(0,-10),
+                     #     opacity = 1,
+                     #     style = list(
+                     #       "color" = "red",
+                     #       "font-family" = "serif",
+                     #       "font-style" = "italic",
+                     #       "box-shadow" = "3px 3px rgba(0,0,0,0.25)",
+                     #       "font-size" = "15px",
+                     #       "border-color" = "rgba(0,0,0,0.5)"
+                     #     )
+                     #   )
+                     # ) %>%
                      leaflet::addLayersControl(
                        overlayGroups = base_layers,
                        baseGroups = tile_layers,
@@ -536,7 +546,35 @@ where es.analysis_id = {globals$stash$a_id};"
                      )
                    }
                    
-                   vmap
+                   
+                   if (nrow(nevse_dcfc) > 0) {
+                     vmap %>%
+                       leaflet::addLabelOnlyMarkers(
+                         lng = ~ longitude,
+                         lat = ~ latitude,
+                         data = nevse_dcfc,
+                         label = ~ station_type,
+                         group = "new_labels",
+                         labelOptions = leaflet::labelOptions(
+                           noHide = TRUE,
+                           direction = "bottom",
+                           textOnly = TRUE,
+                           offset = c(0, -10),
+                           opacity = 1,
+                           style = list(
+                             "color" = "red",
+                             "font-family" = "serif",
+                             "font-style" = "italic",
+                             "box-shadow" = "3px 3px rgba(0,0,0,0.25)",
+                             "font-size" = "15px",
+                             "border-color" = "rgba(0,0,0,0.5)"
+                           )
+                         )
+                       )
+                   } else {
+                     vmap
+                   }
+                   
                  })
                  
                  observeEvent(input$ev_table_rows_selected, {
