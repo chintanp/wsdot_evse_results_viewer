@@ -329,7 +329,7 @@ ORDER  BY rn;"
                  req(globalinput$select_analysis)
                  # print("Date time selected")
                  globals$stash$a_id <-
-                   globals$stash$analyses$analysis_id[globals$stash$analyses$sim_date_time == globalinput$select_analysis]
+                   globals$stash$analyses$analysis_id[globals$stash$analyses$sim_date_time == as.POSIXct(globalinput$select_analysis,tz = "UTC")]
                  # as.numeric(strsplit(globalinput$select_analysis, ' - ', fixed = TRUE)[[1]][2])
                  req(globals$stash$a_id)
                  # print(globals$stash$a_id)

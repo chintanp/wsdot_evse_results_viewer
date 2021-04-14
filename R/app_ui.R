@@ -56,7 +56,7 @@ app_ui <- function(request) {
           opacity = 0.3,
           width = 4,
           title = tags$b("Results Viewer"),
-          imageOutput("logo3", width = 200, height = 66),
+          tags$div(imageOutput("logo3", width = 200, height = 100), style = "background-color: #F4F6F9;"),
           bs4Dash::bs4SidebarMenu(
             id = "sidebar",
             bs4Dash::bs4SidebarMenuItem(

@@ -170,7 +170,7 @@ mod_evses_server <-
                    # browser()
                    req(globalinput$select_analysis)
                    globals$stash$a_id <-
-                     globals$stash$analyses$analysis_id[globals$stash$analyses$sim_date_time == globalinput$select_analysis]
+                     globals$stash$analyses$analysis_id[globals$stash$analyses$sim_date_time == as.POSIXct(globalinput$select_analysis,tz = "UTC")]
                    # as.numeric(strsplit(globalinput$select_analysis, ' - ', fixed = TRUE)[[1]][2])
                    # print(globals$stash$a_id)
                    req(globals$stash$a_id)

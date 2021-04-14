@@ -9,11 +9,11 @@ app_server <- function(input, output, session) {
   # reactlog::reactlog_render()
   output$logo3 <- renderImage({
     list(
-      src = here::here("data-raw", "logo3c.png"),
+      src = here::here("data-raw", "logo_3cev.png"),
       width = 200,
-      height = 66,
+      height = 100,
       contentType = "image/png",
-      alt = "logo"
+      alt = "ChargEVal"
     )
   }, deleteFile = FALSE)
   
@@ -35,7 +35,7 @@ app_server <- function(input, output, session) {
       #                                                           status == "solved") %>% dplyr::collect()
       GlobalData$stash$pool %>% DBI::dbGetQuery(
         glue::glue(
-          "select analysis_id, timezone('{Sys.timezone()}', date_trunc('second', sim_date_time)) as sim_date_time from analysis_record where status = 'solved' and user_id = '{userid}' order by sim_date_time desc;"
+          "select analysis_id, date_trunc('second', sim_date_time) as sim_date_time from analysis_record where status = 'solved' and user_id = '{userid}' order by sim_date_time desc;"
         )
       )
     # browser()
