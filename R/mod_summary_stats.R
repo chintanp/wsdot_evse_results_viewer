@@ -19,7 +19,8 @@ mod_summary_stats_ui <- function(id) {
       bs4Dash::bs4InfoBoxOutput(ns("stranded_count")),
       bs4Dash::bs4InfoBoxOutput(ns("evmt_count")),
       bs4Dash::bs4InfoBoxOutput(ns("charging_session_count")),
-      bs4Dash::bs4InfoBoxOutput(ns("evs_waited_count"))
+      bs4Dash::bs4InfoBoxOutput(ns("evs_waited_count")), 
+      bs4Dash::bs4InfoBoxOutput(ns("set_desc_text"))
       
     ),
     fluidRow(column(
@@ -69,7 +70,7 @@ mod_summary_stats_server <-
                    req(globalinput$select_analysis)
                    print("Date time selected")
                     print(globalinput$select_analysis)
-                    browser()
+                    # browser()
                    globals$stash$a_id <-
                      globals$stash$analyses$analysis_id[globals$stash$analyses$sim_date_time == as.POSIXct(globalinput$select_analysis,tz = "UTC")]
                    #as.numeric(strsplit(globalinput$select_analysis, ' - ')[[1]][2])
@@ -210,6 +211,20 @@ mod_summary_stats_server <-
                        )$count,
                        title = "Number of EVs waiting",
                        icon = "square-full"
+                     )
+                   })
+                   
+                   output$set_desc_text <- bs4Dash::renderbs4InfoBox({
+                     bs4Dash::bs4InfoBox(
+                       value = DBI::dbGetQuery(
+                         globals$stash$pool,
+                         paste0(
+                           "select description from analysis_sets where set_id = (select set_id from analysis_record where analysis_id = ",
+                           globals$stash$a_id, ");"
+                         )
+                       )$description,
+                       title = "Set Description",
+                       icon = "keyboard"
                      )
                    })
                    
